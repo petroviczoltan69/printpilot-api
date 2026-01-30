@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrintPilot AI - Automated Banner Design</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Success notification -->
+    <div id="successNotification" class="hidden fixed top-4 right-4 z-50 success-message text-white px-6 py-4 rounded-lg shadow-2xl">
+        <div class="flex items-center gap-3">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            <span id="successMessage" class="font-semibold"></span>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="hero-bg relative overflow-hidden">
+        <div class="container mx-auto px-4 py-8">
+            <nav class="flex justify-between items-center">
+                <div class="slide-in-left">
+                    <h1 class="font-display text-4xl md:text-5xl font-bold text-white">
+                        PrintPilot<span class="text-[#00f2fe]">AI</span>
+                    </h1>
+                    <p class="text-white/80 text-sm mt-1">Automated Design Studio</p>
+                </div>
+                <button id="cartBtn" class="glass px-6 py-3 rounded-full hover:bg-white/10 transition-all font-semibold text-white slide-in-right">
+                    Cart <span id="cartCount" class="bg-white/20 px-2 py-1 rounded-full ml-2">0</span>
+                </button>
+            </nav>
+
+            <div class="text-center py-20 fade-in">
+                <h2 class="font-display text-5xl md:text-7xl font-bold text-white mb-6">
+                    Design Your Banner<br/>
+                    <span class="text-[#00f2fe]">In Seconds</span>
+                </h2>
+                <p class="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+                    AI-powered background removal, custom designs, and instant previews.
+                    Professional printing delivered to your door.
+                </p>
+                <button onclick="document.getElementById('products').scrollIntoView({behavior: 'smooth'})"
+                        class="btn-primary px-8 py-4 rounded-full text-white font-bold text-lg inline-block">
+                    Start Designing
+                </button>
+            </div>
+        </div>
+
+        <!-- Decorative elements -->
+        <div class="absolute top-20 left-10 w-20 h-20 bg-white/10 rounded-full blur-xl"></div>
+        <div class="absolute bottom-20 right-10 w-32 h-32 bg-purple-500/20 rounded-full blur-2xl"></div>
+    </header>
+
+    <!-- Products Section -->
+    <section id="products" class="py-20 bg-gradient-to-b from-black to-gray-900">
+        <div class="container mx-auto px-4">
+            <h2 class="font-display text-4xl md:text-5xl font-bold text-center mb-4 text-gradient">
+                Choose Your Product
+            </h2>
+            <p class="text-center text-gray-400 mb-12 text-lg">
+                Professional quality, lightning-fast turnaround
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                <div class="product-card glass rounded-2xl p-8 cursor-pointer" onclick="selectProduct('banner', 'Vinyl Banner 6x3ft', 79.99)">
+                    <div class="text-7xl mb-6">🎯</div>
+                    <h3 class="font-display text-2xl font-bold mb-3 text-white">Vinyl Banner</h3>
+                    <p class="text-gray-400 mb-6">6ft x 3ft - Premium 13oz vinyl<br/>Perfect for events & promotions</p>
+                    <div class="text-3xl font-bold text-gradient">$79.99</div>
+                    <div class="mt-6 pt-6 border-t border-white/10">
+                        <ul class="text-sm text-gray-400 space-y-2">
+                            <li>Weather resistant</li>
+                            <li>Grommets included</li>
+                            <li>Free shipping</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="product-card glass rounded-2xl p-8 cursor-pointer neon-purple" onclick="selectProduct('backdrop', 'Step & Repeat Backdrop 8x8ft', 129.99)">
+                    <div class="text-7xl mb-6">📸</div>
+                    <h3 class="font-display text-2xl font-bold mb-3 text-white">Photo Backdrop</h3>
+                    <p class="text-gray-400 mb-6">8ft x 8ft - Step & repeat<br/>Event photography ready</p>
+                    <div class="text-3xl font-bold text-gradient">$129.99</div>
+                    <div class="mt-6 pt-6 border-t border-white/10">
+                        <ul class="text-sm text-gray-400 space-y-2">
+                            <li>Wrinkle-free fabric</li>
+                            <li>Stand included</li>
+                            <li>Premium quality</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="product-card glass rounded-2xl p-8 cursor-pointer" onclick="selectProduct('retractable', 'Retractable Banner Stand', 99.99)">
+                    <div class="text-7xl mb-6">📋</div>
+                    <h3 class="font-display text-2xl font-bold mb-3 text-white">Retractable Stand</h3>
+                    <p class="text-gray-400 mb-6">33" x 79" - Portable banner<br/>Trade shows & retail</p>
+                    <div class="text-3xl font-bold text-gradient">$99.99</div>
+                    <div class="mt-6 pt-6 border-t border-white/10">
+                        <ul class="text-sm text-gray-400 space-y-2">
+                            <li>Easy setup</li>
+                            <li>Travel bag included</li>
+                            <li>Lightweight aluminum</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- AI Design Studio -->
+    <section id="designStudio" class="py-20 bg-gray-900 hidden">
+        <div class="container mx-auto px-4">
+            <div class="max-w-7xl mx-auto">
+                <h2 class="font-display text-4xl md:text-5xl font-bold text-center mb-4 text-gradient">
+                    AI Design Studio
+                </h2>
+                <p class="text-center text-gray-400 mb-12 text-lg">
+                    Upload, customize, and preview in real-time
+                </p>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Controls -->
+                    <div class="space-y-6">
+
+                        <!-- Upload Section -->
+                        <div class="glass-dark rounded-2xl p-6 slide-in-left">
+                            <h3 class="font-display text-2xl font-bold mb-4 text-white flex items-center gap-3">
+                                <span class="bg-gradient-to-r from-blue-500 to-cyan-500 w-8 h-8 rounded-full flex items-center justify-center text-sm">1</span>
+                                Upload Image
+                            </h3>
+                            <div class="upload-zone glass border-2 border-dashed border-gray-600 rounded-xl p-8 text-center" id="uploadZone">
+                                <input type="file" id="imageUpload" accept="image/*" class="hidden">
+                                <div class="text-6xl mb-4">📁</div>
+                                <p class="text-white font-semibold mb-2">Click or drag to upload</p>
+                                <p class="text-sm text-gray-400">PNG, JPG, WebP up to 10MB</p>
+                            </div>
+
+                            <div id="imagePreviewContainer" class="hidden mt-4">
+                                <div class="glass rounded-xl p-4">
+                                    <img id="imagePreview" class="w-full rounded-lg" alt="Preview">
+                                    <button id="removeBackground" class="btn-ai w-full mt-4 px-6 py-3 rounded-xl text-white font-bold">
+                                        Remove Background with AI
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Background Section -->
+                        <div class="glass-dark rounded-2xl p-6 slide-in-left" style="animation-delay: 0.1s">
+                            <h3 class="font-display text-2xl font-bold mb-4 text-white flex items-center gap-3">
+                                <span class="bg-gradient-to-r from-purple-500 to-pink-500 w-8 h-8 rounded-full flex items-center justify-center text-sm">2</span>
+                                Background
+                            </h3>
+
+                            <select id="bgType" class="w-full bg-black/50 border-2 border-gray-700 rounded-xl p-3 text-white mb-4 focus:border-purple-500 outline-none transition">
+                                <option value="solid">Solid Color</option>
+                                <option value="gradient">Gradient</option>
+                                <option value="ai">AI Generated</option>
+                            </select>
+
+                            <div id="solidColorOptions" class="space-y-3">
+                                <label class="text-gray-400 text-sm">Pick Color:</label>
+                                <input type="color" id="bgColor" value="#ffffff" class="w-full h-16 rounded-xl border-2 border-gray-700 cursor-pointer">
+                            </div>
+
+                            <div id="gradientOptions" class="space-y-3 hidden">
+                                <label class="text-gray-400 text-sm">Gradient Colors:</label>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <input type="color" id="gradColor1" value="#667eea" class="w-full h-16 rounded-xl border-2 border-gray-700 cursor-pointer">
+                                    <input type="color" id="gradColor2" value="#764ba2" class="w-full h-16 rounded-xl border-2 border-gray-700 cursor-pointer">
+                                </div>
+                            </div>
+
+                            <div id="aiGenerateOptions" class="space-y-3 hidden">
+                                <label class="text-gray-400 text-sm">Describe Your Background:</label>
+                                <textarea id="aiPrompt" class="w-full bg-black/50 border-2 border-gray-700 rounded-xl p-4 text-white resize-none focus:border-purple-500 outline-none transition" rows="3" placeholder="Modern geometric pattern with blue and gold accents"></textarea>
+                                <button id="generateBackground" class="btn-ai w-full px-6 py-3 rounded-xl text-white font-bold">
+                                    Generate with DALL-E 3
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Text Section -->
+                        <div class="glass-dark rounded-2xl p-6 slide-in-left" style="animation-delay: 0.2s">
+                            <h3 class="font-display text-2xl font-bold mb-4 text-white flex items-center gap-3">
+                                <span class="bg-gradient-to-r from-green-500 to-cyan-500 w-8 h-8 rounded-full flex items-center justify-center text-sm">3</span>
+                                Add Text
+                            </h3>
+
+                            <input type="text" id="textContent" class="w-full bg-black/50 border-2 border-gray-700 rounded-xl p-4 text-white mb-4 focus:border-green-500 outline-none transition" placeholder="Enter your text here">
+
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="text-gray-400 text-sm mb-2 block">Font Size:</label>
+                                    <input type="range" id="fontSize" min="20" max="200" value="80" class="w-full accent-green-500">
+                                    <span id="fontSizeValue" class="text-white text-sm">80px</span>
+                                </div>
+                                <div>
+                                    <label class="text-gray-400 text-sm mb-2 block">Color:</label>
+                                    <input type="color" id="textColor" value="#000000" class="w-full h-12 rounded-xl border-2 border-gray-700 cursor-pointer">
+                                </div>
+                            </div>
+
+                            <select id="fontFamily" class="w-full bg-black/50 border-2 border-gray-700 rounded-xl p-3 text-white mb-4 focus:border-green-500 outline-none transition">
+                                <option value="Impact">Impact (Bold)</option>
+                                <option value="Arial Black">Arial Black</option>
+                                <option value="Georgia">Georgia (Serif)</option>
+                                <option value="Courier New">Courier New (Mono)</option>
+                                <option value="Comic Sans MS">Comic Sans (Playful)</option>
+                            </select>
+
+                            <button id="addText" class="btn-success w-full px-6 py-3 rounded-xl text-white font-bold">
+                                Add Text Layer
+                            </button>
+                        </div>
+
+                        <!-- Add to Cart -->
+                        <button id="addToCart" class="w-full btn-primary px-8 py-5 rounded-2xl text-white font-bold text-xl neon-blue">
+                            Add to Cart - $<span id="productPrice">0.00</span>
+                        </button>
+                    </div>
+
+                    <!-- Live Preview -->
+                    <div class="sticky top-4 slide-in-right">
+                        <div class="glass-dark rounded-2xl p-6">
+                            <h3 class="font-display text-2xl font-bold mb-4 text-white text-center">
+                                Live Preview
+                            </h3>
+                            <div class="canvas-container rounded-xl overflow-hidden">
+                                <canvas id="previewCanvas" width="1000" height="500" class="w-full"></canvas>
+                            </div>
+                            <p class="text-sm text-gray-400 mt-4 text-center">
+                                Real-time rendering - What you see is what you get
+                            </p>
+
+                            <div id="loadingIndicator" class="hidden mt-6 text-center">
+                                <div class="loading-spinner mx-auto"></div>
+                                <p class="text-cyan-400 font-bold mt-4 pulse">Processing with AI...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section class="py-20 bg-black">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 max-w-6xl mx-auto">
+                <div class="text-center">
+                    <div class="text-5xl mb-4">⚡</div>
+                    <h3 class="font-display font-bold text-xl text-white mb-2">AI-Powered</h3>
+                    <p class="text-gray-400 text-sm">Automatic background removal & design</p>
+                </div>
+                <div class="text-center">
+                    <div class="text-5xl mb-4">🚀</div>
+                    <h3 class="font-display font-bold text-xl text-white mb-2">Fast Turnaround</h3>
+                    <p class="text-gray-400 text-sm">Print & ship within 24-48 hours</p>
+                </div>
+                <div class="text-center">
+                    <div class="text-5xl mb-4">✨</div>
+                    <h3 class="font-display font-bold text-xl text-white mb-2">Pro Quality</h3>
+                    <p class="text-gray-400 text-sm">Premium materials & printing</p>
+                </div>
+                <div class="text-center">
+                    <div class="text-5xl mb-4">📦</div>
+                    <h3 class="font-display font-bold text-xl text-white mb-2">Free Shipping</h3>
+                    <p class="text-gray-400 text-sm">On all orders, nationwide</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Cart Modal -->
+    <div id="cartModal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-backdrop">
+        <div class="glass-dark rounded-2xl shadow-2xl p-8 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="font-display text-3xl font-bold text-white">Shopping Cart</h2>
+                <button onclick="closeCart()" class="text-gray-400 hover:text-white text-3xl transition">x</button>
+            </div>
+
+            <div id="cartItems" class="space-y-4 mb-6">
+                <p class="text-gray-400 text-center py-12">Your cart is empty</p>
+            </div>
+
+            <div class="border-t-2 border-gray-700 pt-6">
+                <div class="flex justify-between items-center text-2xl font-bold mb-6">
+                    <span class="text-white">Total:</span>
+                    <span class="text-gradient font-display">$<span id="cartTotal">0.00</span></span>
+                </div>
+                <button class="w-full btn-success px-8 py-5 rounded-2xl text-white font-bold text-xl neon-blue">
+                    Proceed to Checkout
+                </button>
+                <p class="text-center text-gray-400 text-sm mt-4">
+                    Secure payment - Free shipping - 100% satisfaction guarantee
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-black border-t border-gray-800 py-12">
+        <div class="container mx-auto px-4 text-center">
+            <h3 class="font-display text-2xl font-bold text-gradient mb-2">PrintPilot AI</h3>
+            <p class="text-gray-400 mb-4">Automated banner design & printing powered by OpenAI</p>
+            <p class="text-gray-600 text-sm">2026 PrintPilot AI. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
