@@ -1,7 +1,9 @@
 // Vercel Serverless Function - Remove Background API
 // Uses Clipdrop API for professional background removal
 
-export default async function handler(req, res) {
+const FormData = require('form-data');
+
+module.exports = async function handler(req, res) {
     // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -24,10 +26,6 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'No image data provided' });
         }
 
-        // Extract base64 data
-        const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
-        const imageBuffer = Buffer.from(base64Data, 'base64');
-
         // Clipdrop API Key - set this in Vercel Environment Variables
         const CLIPDROP_API_KEY = process.env.CLIPDROP_API_KEY;
 
@@ -35,15 +33,20 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: 'Clipdrop API key not configured' });
         }
 
+        // Extract base64 data
+        const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
+        const imageBuffer = Buffer.from(base64Data, 'base64');
+
         // Create form data for Clipdrop
-        const FormData = (await import('form-data')).default;
         const formData = new FormData();
         formData.append('image_file', imageBuffer, {
             filename: 'image.png',
             contentType: 'image/png'
         });
 
-        // Call Clipdrop API
+        // Call Clipdrop API using node-fetch
+        const fetch = (await import('node-fetch')).default;
+
         const response = await fetch('https://clipdrop-api.co/remove-background/v1', {
             method: 'POST',
             headers: {
@@ -63,8 +66,8 @@ export default async function handler(req, res) {
         }
 
         // Get the result image
-        const resultBuffer = await response.arrayBuffer();
-        const resultBase64 = Buffer.from(resultBuffer).toString('base64');
+        const resultBuffer = await response.buffer();
+        const resultBase64 = resultBuffer.toString('base64');
         const resultDataUrl = `data:image/png;base64,${resultBase64}`;
 
         return res.status(200).json({
@@ -79,4 +82,4 @@ export default async function handler(req, res) {
             message: error.message
         });
     }
-}
+};
