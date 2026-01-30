@@ -1,9 +1,5 @@
 {
   "name": "printpilot-api",
   "version": "1.0.0",
-  "description": "Background removal API proxy for PrintPilot",
-  "main": "api/remove-background.js",
-  "dependencies": {
-    "form-data": "^4.0.0"
-  }
+  "description": "Background removal API proxy for PrintPilot"
 }

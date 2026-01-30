@@ -32,39 +32,48 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'No image data provided' });
         }
 
-        // Convert base64 to blob
+        // Convert base64 to buffer
         const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
-        const buffer = Buffer.from(base64Data, 'base64');
+        const imageBuffer = Buffer.from(base64Data, 'base64');
 
-        // Create form data
-        const FormData = require('form-data');
-        const formData = new FormData();
-        formData.append('image_file', buffer, {
-            filename: 'image.png',
-            contentType: 'image/png'
-        });
+        // Create proper multipart form data boundary
+        const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
+        
+        // Build multipart form data body
+        const formDataParts = [];
+        formDataParts.push(`--${boundary}\r\n`);
+        formDataParts.push(`Content-Disposition: form-data; name="image_file"; filename="image.png"\r\n`);
+        formDataParts.push(`Content-Type: image/png\r\n\r\n`);
+        
+        const formDataBuffer = Buffer.concat([
+            Buffer.from(formDataParts.join('')),
+            imageBuffer,
+            Buffer.from(`\r\n--${boundary}--\r\n`)
+        ]);
 
         // Call Clipdrop API
-        const response = await fetch('https://clipdrop-api.co/remove-background/v1', {
+        const clipdropResponse = await fetch('https://clipdrop-api.co/remove-background/v1', {
             method: 'POST',
             headers: {
                 'x-api-key': CLIPDROP_API_KEY,
-                ...formData.getHeaders()
+                'Content-Type': `multipart/form-data; boundary=${boundary}`,
+                'Content-Length': formDataBuffer.length.toString()
             },
-            body: formData
+            body: formDataBuffer
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Clipdrop error:', errorText);
-            return res.status(response.status).json({ 
+        if (!clipdropResponse.ok) {
+            const errorText = await clipdropResponse.text();
+            console.error('Clipdrop API error:', errorText);
+            return res.status(clipdropResponse.status).json({ 
                 error: 'Clipdrop API error',
-                details: errorText 
+                details: errorText,
+                status: clipdropResponse.status
             });
         }
 
         // Get result as buffer
-        const resultBuffer = await response.arrayBuffer();
+        const resultBuffer = await clipdropResponse.arrayBuffer();
         const resultBase64 = Buffer.from(resultBuffer).toString('base64');
 
         // Return as base64
@@ -77,7 +86,8 @@ export default async function handler(req, res) {
         console.error('Server error:', error);
         return res.status(500).json({ 
             error: 'Internal server error',
-            message: error.message 
+            message: error.message,
+            stack: error.stack
         });
     }
 }
