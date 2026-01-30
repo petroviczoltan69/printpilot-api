@@ -1,79 +1,45 @@
-# PrintPilot API - Vercel Serverless
+# PrintPilot API
 
-Background removal API proxy za PrintPilot koristeći Clipdrop AI.
+Vercel Serverless API za PrintPilot AI.
 
-## 🚀 Kako deploy-ovati na Vercel:
+## Setup
 
-### 1. Instalacija Vercel CLI
+1. **Deploy na Vercel:**
+   ```bash
+   npm i -g vercel
+   vercel
+   ```
 
-```bash
-npm install -g vercel
-```
+2. **Dodaj Environment Variable na Vercel:**
+   - Idi na: https://vercel.com/your-project/settings/environment-variables
+   - Dodaj: `CLIPDROP_API_KEY` = tvoj Clipdrop API key
 
-### 2. Login u Vercel
+3. **Redeploy:**
+   ```bash
+   vercel --prod
+   ```
 
-```bash
-vercel login
-```
+## API Endpoints
 
-Unesi email i klikni link koji dobiješ.
+### POST /api/remove-background
 
-### 3. Deploy
+Uklanja pozadinu sa slike.
 
-Iz ovog foldera pokreni:
-
-```bash
-vercel
-```
-
-Odgovori na pitanja:
-- Set up and deploy? **Y**
-- Which scope? Tvoj username
-- Link to existing project? **N**
-- Project name? **printpilot-api**
-- Directory? **./** (samo enter)
-- Override settings? **N**
-
-### 4. Produkcioni Deploy
-
-```bash
-vercel --prod
-```
-
-Dobijaš URL tipa: `https://printpilot-api.vercel.app`
-
-## 📝 Korišćenje u frontend-u
-
-Kada dobiješ Vercel URL, update-uj HTML fajl:
-
-```javascript
-const API_URL = 'https://printpilot-api.vercel.app';
-
-// U background removal funkciji:
-const response = await fetch(`${API_URL}/api/remove-background`, {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-        imageData: originalImageData
-    })
-});
-
-const data = await response.json();
-if (data.success) {
-    // Učitaj obrađenu sliku
-    uploadedImage.src = data.image;
+**Request:**
+```json
+{
+  "imageData": "data:image/png;base64,..."
 }
 ```
 
-## 🎉 Gotovo!
+**Response:**
+```json
+{
+  "success": true,
+  "image": "data:image/png;base64,..."
+}
+```
 
-API će biti dostupan 24/7, besplatno, sa automatskim scaling-om!
+## Clipdrop API
 
-## Troubleshooting
-
-Ako dobijaš greške:
-1. Proveri da li je `form-data` instaliran: `npm install`
-2. Proveri Vercel logs: `vercel logs`
-3. Proveri da li imaš credits na Clipdrop nalogu
+Registruj se na https://clipdrop.co/apis da dobijes API key.

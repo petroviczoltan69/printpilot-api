@@ -1,20 +1,15 @@
-// Vercel Serverless Function for Clipdrop Background Removal
-// This acts as a proxy to bypass CORS restrictions
+// Vercel Serverless Function - Remove Background API
+// Uses Clipdrop API for professional background removal
 
 export default async function handler(req, res) {
-    // Enable CORS
-    res.setHeader('Access-Control-Allow-Credentials', true);
+    // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-    res.setHeader(
-        'Access-Control-Allow-Headers',
-        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-    );
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    // Handle OPTIONS request
+    // Handle preflight request
     if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
+        return res.status(200).end();
     }
 
     // Only allow POST
@@ -23,71 +18,65 @@ export default async function handler(req, res) {
     }
 
     try {
-        const CLIPDROP_API_KEY = '3cbd14e61caf622cd51cb12a24e1d7eede5ffaaae0ae0a564bcfd1ae9e0ffad16a0d23c0132d2a0aa1d5bf31619b3238';
-
-        // Get image from request body
         const { imageData } = req.body;
 
         if (!imageData) {
             return res.status(400).json({ error: 'No image data provided' });
         }
 
-        // Convert base64 to buffer
+        // Extract base64 data
         const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
         const imageBuffer = Buffer.from(base64Data, 'base64');
 
-        // Create proper multipart form data boundary
-        const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
-        
-        // Build multipart form data body
-        const formDataParts = [];
-        formDataParts.push(`--${boundary}\r\n`);
-        formDataParts.push(`Content-Disposition: form-data; name="image_file"; filename="image.png"\r\n`);
-        formDataParts.push(`Content-Type: image/png\r\n\r\n`);
-        
-        const formDataBuffer = Buffer.concat([
-            Buffer.from(formDataParts.join('')),
-            imageBuffer,
-            Buffer.from(`\r\n--${boundary}--\r\n`)
-        ]);
+        // Clipdrop API Key - set this in Vercel Environment Variables
+        const CLIPDROP_API_KEY = process.env.CLIPDROP_API_KEY;
+
+        if (!CLIPDROP_API_KEY) {
+            return res.status(500).json({ error: 'Clipdrop API key not configured' });
+        }
+
+        // Create form data for Clipdrop
+        const FormData = (await import('form-data')).default;
+        const formData = new FormData();
+        formData.append('image_file', imageBuffer, {
+            filename: 'image.png',
+            contentType: 'image/png'
+        });
 
         // Call Clipdrop API
-        const clipdropResponse = await fetch('https://clipdrop-api.co/remove-background/v1', {
+        const response = await fetch('https://clipdrop-api.co/remove-background/v1', {
             method: 'POST',
             headers: {
                 'x-api-key': CLIPDROP_API_KEY,
-                'Content-Type': `multipart/form-data; boundary=${boundary}`,
-                'Content-Length': formDataBuffer.length.toString()
+                ...formData.getHeaders()
             },
-            body: formDataBuffer
+            body: formData
         });
 
-        if (!clipdropResponse.ok) {
-            const errorText = await clipdropResponse.text();
-            console.error('Clipdrop API error:', errorText);
-            return res.status(clipdropResponse.status).json({ 
-                error: 'Clipdrop API error',
-                details: errorText,
-                status: clipdropResponse.status
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Clipdrop error:', errorText);
+            return res.status(response.status).json({
+                error: 'Background removal failed',
+                details: errorText
             });
         }
 
-        // Get result as buffer
-        const resultBuffer = await clipdropResponse.arrayBuffer();
+        // Get the result image
+        const resultBuffer = await response.arrayBuffer();
         const resultBase64 = Buffer.from(resultBuffer).toString('base64');
+        const resultDataUrl = `data:image/png;base64,${resultBase64}`;
 
-        // Return as base64
         return res.status(200).json({
             success: true,
-            image: `data:image/png;base64,${resultBase64}`
+            image: resultDataUrl
         });
 
     } catch (error) {
         console.error('Server error:', error);
-        return res.status(500).json({ 
+        return res.status(500).json({
             error: 'Internal server error',
-            message: error.message,
-            stack: error.stack
+            message: error.message
         });
     }
 }

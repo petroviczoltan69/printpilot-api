@@ -1,5 +1,16 @@
 {
   "name": "printpilot-api",
   "version": "1.0.0",
-  "description": "Background removal API proxy for PrintPilot"
+  "description": "PrintPilot AI Backend API",
+  "main": "api/remove-background.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "form-data": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
 }
