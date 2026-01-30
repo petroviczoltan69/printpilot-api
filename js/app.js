@@ -209,31 +209,25 @@ async function generateAIBackground() {
     try {
         console.log('Generating background with prompt:', prompt);
 
-        const response = await fetch('https://api.openai.com/v1/images/generations', {
+        // Call Vercel API instead of OpenAI directly
+        const response = await fetch(`${CONFIG.API_URL}/api/generate-background`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${CONFIG.OPENAI_API_KEY}`
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                model: "dall-e-3",
-                prompt: `Create a professional, high-quality banner background design: ${prompt}. Make it vibrant, print-ready quality, suitable for large format printing. High resolution, professional graphics.`,
-                n: 1,
-                size: "1024x1024",
-                quality: "standard"
-            })
+            body: JSON.stringify({ prompt: prompt })
         });
 
         if (!response.ok) {
             const errorData = await response.json();
             console.error('API Error:', errorData);
-            throw new Error(errorData.error?.message || 'Failed to generate image');
+            throw new Error(errorData.error || errorData.details || 'Failed to generate image');
         }
 
         const data = await response.json();
         console.log('API Response:', data);
 
-        if (data.data && data.data[0] && data.data[0].url) {
+        if (data.success && data.imageUrl) {
             const img = new Image();
             img.crossOrigin = "anonymous";
 
@@ -244,24 +238,24 @@ async function generateAIBackground() {
             };
 
             img.onerror = function() {
-                showSuccess('Background generated! Refresh to see it.');
                 // Fallback: try loading without crossOrigin
                 const img2 = new Image();
                 img2.onload = function() {
                     backgroundImage = img2;
                     updateCanvas();
+                    showSuccess('AI background generated successfully!');
                 };
-                img2.src = data.data[0].url;
+                img2.src = data.imageUrl;
             };
 
-            img.src = data.data[0].url;
+            img.src = data.imageUrl;
         } else {
             throw new Error('No image URL in response');
         }
 
     } catch (error) {
         console.error('Full error:', error);
-        alert(`Error: ${error.message}\n\nTip: Make sure your OpenAI account has credits and DALL-E access enabled.`);
+        alert(`Error: ${error.message}\n\nTip: Make sure the API is configured correctly.`);
     } finally {
         showLoading(false);
     }
