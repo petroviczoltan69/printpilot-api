@@ -197,6 +197,16 @@ let state = {
     backgroundImage: null,
     backgroundType: 'solid',
     textElements: [],
+    // Photo mode controls
+    photoImageScale: 100,
+    photoImageX: 0.5,
+    photoImageY: 0.5,
+    photoFitMode: 'cover',
+    showPhotoText: false,
+    photoText: '',
+    photoTextPosition: 'bottom',
+    gradDirection: 'horizontal',
+    // Logo mode
     logoImage: null,
     patternStyle: 'diagonal',
     logoSize: 150,
@@ -399,6 +409,7 @@ function initPhotoControls() {
         document.getElementById('uploadedImage')?.classList.add('hidden');
         document.getElementById('uploadZone')?.classList.remove('hidden');
         document.getElementById('removeBackground')?.classList.add('hidden');
+        document.getElementById('photoImageControls')?.classList.add('hidden');
         updateCanvas();
     });
 
@@ -413,6 +424,49 @@ function initPhotoControls() {
     document.getElementById('gradColor2')?.addEventListener('input', updateCanvas);
     document.getElementById('generateBackground')?.addEventListener('click', generateAIBackground);
 
+    // Gradient direction
+    document.getElementById('gradDirection')?.addEventListener('change', function() {
+        state.gradDirection = this.value;
+        updateCanvas();
+    });
+
+    // Photo image scale
+    const photoImageScale = document.getElementById('photoImageScale');
+    if (photoImageScale) {
+        photoImageScale.addEventListener('input', function() {
+            state.photoImageScale = parseInt(this.value);
+            document.getElementById('photoImageScaleValue').textContent = this.value + '%';
+            updateCanvas();
+        });
+    }
+
+    // Photo fit mode
+    document.getElementById('photoFitMode')?.addEventListener('change', function() {
+        state.photoFitMode = this.value;
+        updateCanvas();
+    });
+
+    // Photo position buttons
+    document.querySelectorAll('.position-btn[data-target="photo"]').forEach(btn => {
+        btn.addEventListener('click', handlePhotoPositionChange);
+    });
+
+    // Show/hide photo text
+    const showPhotoText = document.getElementById('showPhotoText');
+    if (showPhotoText) {
+        showPhotoText.addEventListener('change', function() {
+            state.showPhotoText = this.checked;
+            document.getElementById('photoTextSettings')?.classList.toggle('hidden', !this.checked);
+            updateCanvas();
+        });
+    }
+
+    // Photo text position
+    document.getElementById('photoTextPosition')?.addEventListener('change', function() {
+        state.photoTextPosition = this.value;
+        updateCanvas();
+    });
+
     const fontSize = document.getElementById('fontSize');
     if (fontSize) {
         fontSize.addEventListener('input', function() {
@@ -422,8 +476,39 @@ function initPhotoControls() {
     }
     document.getElementById('textColor')?.addEventListener('input', updateCanvas);
     document.getElementById('fontFamily')?.addEventListener('change', updateCanvas);
-    document.getElementById('textContent')?.addEventListener('input', updateCanvas);
-    document.getElementById('addText')?.addEventListener('click', addTextLayer);
+    document.getElementById('textContent')?.addEventListener('input', function() {
+        state.photoText = this.value;
+        updateCanvas();
+    });
+}
+
+// Handle photo position change
+function handlePhotoPositionChange(e) {
+    const btn = e.target.closest('.position-btn');
+    if (!btn) return;
+
+    const direction = btn.dataset.direction;
+    const step = 0.05;
+
+    switch (direction) {
+        case 'up':
+            state.photoImageY = Math.max(0, state.photoImageY - step);
+            break;
+        case 'down':
+            state.photoImageY = Math.min(1, state.photoImageY + step);
+            break;
+        case 'left':
+            state.photoImageX = Math.max(0, state.photoImageX - step);
+            break;
+        case 'right':
+            state.photoImageX = Math.min(1, state.photoImageX + step);
+            break;
+        case 'center':
+            state.photoImageX = 0.5;
+            state.photoImageY = 0.5;
+            break;
+    }
+    updateCanvas();
 }
 
 // ========== Logo Mode Controls ==========
@@ -828,6 +913,16 @@ function resetDesignState() {
     state.backgroundImage = null;
     state.backgroundType = 'solid';
     state.textElements = [];
+    // Photo mode reset
+    state.photoImageScale = 100;
+    state.photoImageX = 0.5;
+    state.photoImageY = 0.5;
+    state.photoFitMode = 'cover';
+    state.showPhotoText = false;
+    state.photoText = '';
+    state.photoTextPosition = 'bottom';
+    state.gradDirection = 'horizontal';
+    // Logo mode
     state.logoImage = null;
     state.patternStyle = 'diagonal';
     state.logoSize = 150;
@@ -868,8 +963,14 @@ function resetDesignState() {
     document.getElementById('uploadedImage')?.classList.add('hidden');
     document.getElementById('uploadZone')?.classList.remove('hidden');
     document.getElementById('removeBackground')?.classList.add('hidden');
+    document.getElementById('photoImageControls')?.classList.add('hidden');
+    document.getElementById('photoTextSettings')?.classList.add('hidden');
     document.getElementById('uploadedLogo')?.classList.add('hidden');
     document.getElementById('logoUploadZone')?.classList.remove('hidden');
+
+    // Reset photo checkboxes
+    const showPhotoText = document.getElementById('showPhotoText');
+    if (showPhotoText) showPhotoText.checked = false;
 
     // Reset design type selection
     document.querySelectorAll('.design-type-card').forEach(c => {
@@ -1238,16 +1339,29 @@ function handleImageUpload(e) {
         img.onload = function() {
             state.uploadedImage = img;
             state.originalImageData = event.target.result;
+            // Reset position for new image
+            state.photoImageX = 0.5;
+            state.photoImageY = 0.5;
+            state.photoImageScale = 100;
 
             const preview = document.getElementById('imagePreview');
             const uploadedContainer = document.getElementById('uploadedImage');
             const uploadZone = document.getElementById('uploadZone');
             const removeBtn = document.getElementById('removeBackground');
+            const imageControls = document.getElementById('photoImageControls');
 
             if (preview) preview.src = event.target.result;
             if (uploadedContainer) uploadedContainer.classList.remove('hidden');
             if (uploadZone) uploadZone.classList.add('hidden');
             if (removeBtn) removeBtn.classList.remove('hidden');
+            if (imageControls) imageControls.classList.remove('hidden');
+
+            // Reset scale slider
+            const scaleSlider = document.getElementById('photoImageScale');
+            if (scaleSlider) {
+                scaleSlider.value = 100;
+                document.getElementById('photoImageScaleValue').textContent = '100%';
+            }
 
             updateCanvas();
             showSuccess('Image uploaded successfully!');
@@ -1522,6 +1636,7 @@ function updateCanvas() {
 
 // ========== Draw Photo Mode ==========
 function drawPhotoMode() {
+    // Draw background
     if (state.backgroundType === 'solid') {
         const color = document.getElementById('bgColor')?.value || '#ffffff';
         ctx.fillStyle = color;
@@ -1529,7 +1644,27 @@ function drawPhotoMode() {
     } else if (state.backgroundType === 'gradient') {
         const color1 = document.getElementById('gradColor1')?.value || '#667eea';
         const color2 = document.getElementById('gradColor2')?.value || '#764ba2';
-        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        let gradient;
+
+        switch (state.gradDirection) {
+            case 'horizontal':
+                gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+                break;
+            case 'vertical':
+                gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                break;
+            case 'diagonal':
+                gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                break;
+            case 'radial':
+                gradient = ctx.createRadialGradient(
+                    canvas.width / 2, canvas.height / 2, 0,
+                    canvas.width / 2, canvas.height / 2, Math.max(canvas.width, canvas.height) / 2
+                );
+                break;
+            default:
+                gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+        }
         gradient.addColorStop(0, color1);
         gradient.addColorStop(1, color2);
         ctx.fillStyle = gradient;
@@ -1538,16 +1673,43 @@ function drawPhotoMode() {
         ctx.drawImage(state.backgroundImage, 0, 0, canvas.width, canvas.height);
     }
 
+    // Draw uploaded image with position and scale controls
     if (state.uploadedImage) {
-        const maxWidth = canvas.width * 0.6;
-        const maxHeight = canvas.height * 0.7;
-        const scale = Math.min(maxWidth / state.uploadedImage.width, maxHeight / state.uploadedImage.height);
+        let x, y, width, height;
+        const imgRatio = state.uploadedImage.width / state.uploadedImage.height;
+        const canvasRatio = canvas.width / canvas.height;
 
-        const width = state.uploadedImage.width * scale;
-        const height = state.uploadedImage.height * scale;
-        const x = (canvas.width - width) / 2;
-        const y = (canvas.height - height) / 2 - 20;
+        if (state.photoFitMode === 'cover') {
+            // Cover - fill canvas, may crop
+            if (imgRatio > canvasRatio) {
+                height = canvas.height * (state.photoImageScale / 100);
+                width = height * imgRatio;
+            } else {
+                width = canvas.width * (state.photoImageScale / 100);
+                height = width / imgRatio;
+            }
+            x = (canvas.width - width) * state.photoImageX;
+            y = (canvas.height - height) * state.photoImageY;
+        } else if (state.photoFitMode === 'contain') {
+            // Contain - fit inside, may have letterbox
+            if (imgRatio > canvasRatio) {
+                width = canvas.width * 0.9 * (state.photoImageScale / 100);
+                height = width / imgRatio;
+            } else {
+                height = canvas.height * 0.9 * (state.photoImageScale / 100);
+                width = height * imgRatio;
+            }
+            x = (canvas.width - width) / 2 + (state.photoImageX - 0.5) * canvas.width * 0.5;
+            y = (canvas.height - height) / 2 + (state.photoImageY - 0.5) * canvas.height * 0.5;
+        } else {
+            // Free position mode
+            width = state.uploadedImage.width * (state.photoImageScale / 100) * 0.5;
+            height = state.uploadedImage.height * (state.photoImageScale / 100) * 0.5;
+            x = canvas.width * state.photoImageX - width / 2;
+            y = canvas.height * state.photoImageY - height / 2;
+        }
 
+        // Drop shadow
         ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
         ctx.shadowBlur = 20;
         ctx.shadowOffsetY = 10;
@@ -1559,6 +1721,7 @@ function drawPhotoMode() {
         ctx.shadowOffsetY = 0;
     }
 
+    // Draw text elements (previously added)
     state.textElements.forEach(element => {
         ctx.font = `bold ${element.fontSize}px ${element.fontFamily}`;
         ctx.fillStyle = element.color;
@@ -1576,18 +1739,43 @@ function drawPhotoMode() {
         ctx.shadowBlur = 0;
     });
 
-    const currentText = document.getElementById('textContent')?.value.trim();
-    if (currentText) {
-        const fontSize = document.getElementById('fontSize')?.value || 60;
-        const fontFamily = document.getElementById('fontFamily')?.value || 'Impact';
-        const color = document.getElementById('textColor')?.value || '#000000';
+    // Draw current text if showPhotoText is enabled
+    if (state.showPhotoText) {
+        const currentText = document.getElementById('textContent')?.value.trim();
+        if (currentText) {
+            const fontSize = parseInt(document.getElementById('fontSize')?.value) || 60;
+            const fontFamily = document.getElementById('fontFamily')?.value || 'Impact';
+            const color = document.getElementById('textColor')?.value || '#000000';
 
-        ctx.font = `bold ${fontSize}px ${fontFamily}`;
-        ctx.fillStyle = color;
-        ctx.textAlign = 'center';
-        ctx.globalAlpha = 0.5;
-        ctx.fillText(currentText, canvas.width / 2, canvas.height - 80);
-        ctx.globalAlpha = 1.0;
+            ctx.font = `bold ${fontSize}px ${fontFamily}`;
+            ctx.fillStyle = color;
+            ctx.textAlign = 'center';
+
+            // Text shadow
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            ctx.shadowBlur = 8;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+
+            let textY;
+            switch (state.photoTextPosition) {
+                case 'top':
+                    textY = fontSize + 30;
+                    break;
+                case 'center':
+                    textY = canvas.height / 2;
+                    break;
+                case 'bottom':
+                default:
+                    textY = canvas.height - 50;
+                    break;
+            }
+
+            ctx.fillText(currentText, canvas.width / 2, textY);
+
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+        }
     }
 }
 
@@ -1875,7 +2063,8 @@ async function downloadPDF() {
         hiResCtx.fillRect(0, 0, canvas.width, canvas.height);
 
         if (state.designType === 'photo') {
-            // Redraw photo mode content
+            // Redraw photo mode content (same as drawPhotoMode but on hiResCtx)
+            // Background
             if (state.backgroundType === 'solid') {
                 const color = document.getElementById('bgColor')?.value || '#ffffff';
                 hiResCtx.fillStyle = color;
@@ -1883,7 +2072,26 @@ async function downloadPDF() {
             } else if (state.backgroundType === 'gradient') {
                 const color1 = document.getElementById('gradColor1')?.value || '#667eea';
                 const color2 = document.getElementById('gradColor2')?.value || '#764ba2';
-                const gradient = hiResCtx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                let gradient;
+                switch (state.gradDirection) {
+                    case 'horizontal':
+                        gradient = hiResCtx.createLinearGradient(0, 0, canvas.width, 0);
+                        break;
+                    case 'vertical':
+                        gradient = hiResCtx.createLinearGradient(0, 0, 0, canvas.height);
+                        break;
+                    case 'diagonal':
+                        gradient = hiResCtx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                        break;
+                    case 'radial':
+                        gradient = hiResCtx.createRadialGradient(
+                            canvas.width / 2, canvas.height / 2, 0,
+                            canvas.width / 2, canvas.height / 2, Math.max(canvas.width, canvas.height) / 2
+                        );
+                        break;
+                    default:
+                        gradient = hiResCtx.createLinearGradient(0, 0, canvas.width, 0);
+                }
                 gradient.addColorStop(0, color1);
                 gradient.addColorStop(1, color2);
                 hiResCtx.fillStyle = gradient;
@@ -1892,14 +2100,38 @@ async function downloadPDF() {
                 hiResCtx.drawImage(state.backgroundImage, 0, 0, canvas.width, canvas.height);
             }
 
+            // Draw uploaded image with position and scale
             if (state.uploadedImage) {
-                const maxWidth = canvas.width * 0.6;
-                const maxHeight = canvas.height * 0.7;
-                const scale = Math.min(maxWidth / state.uploadedImage.width, maxHeight / state.uploadedImage.height);
-                const width = state.uploadedImage.width * scale;
-                const height = state.uploadedImage.height * scale;
-                const x = (canvas.width - width) / 2;
-                const y = (canvas.height - height) / 2 - 20;
+                let x, y, width, height;
+                const imgRatio = state.uploadedImage.width / state.uploadedImage.height;
+                const canvasRatio = canvas.width / canvas.height;
+
+                if (state.photoFitMode === 'cover') {
+                    if (imgRatio > canvasRatio) {
+                        height = canvas.height * (state.photoImageScale / 100);
+                        width = height * imgRatio;
+                    } else {
+                        width = canvas.width * (state.photoImageScale / 100);
+                        height = width / imgRatio;
+                    }
+                    x = (canvas.width - width) * state.photoImageX;
+                    y = (canvas.height - height) * state.photoImageY;
+                } else if (state.photoFitMode === 'contain') {
+                    if (imgRatio > canvasRatio) {
+                        width = canvas.width * 0.9 * (state.photoImageScale / 100);
+                        height = width / imgRatio;
+                    } else {
+                        height = canvas.height * 0.9 * (state.photoImageScale / 100);
+                        width = height * imgRatio;
+                    }
+                    x = (canvas.width - width) / 2 + (state.photoImageX - 0.5) * canvas.width * 0.5;
+                    y = (canvas.height - height) / 2 + (state.photoImageY - 0.5) * canvas.height * 0.5;
+                } else {
+                    width = state.uploadedImage.width * (state.photoImageScale / 100) * 0.5;
+                    height = state.uploadedImage.height * (state.photoImageScale / 100) * 0.5;
+                    x = canvas.width * state.photoImageX - width / 2;
+                    y = canvas.height * state.photoImageY - height / 2;
+                }
                 hiResCtx.drawImage(state.uploadedImage, x, y, width, height);
             }
 
@@ -1911,6 +2143,35 @@ async function downloadPDF() {
                 hiResCtx.textBaseline = 'middle';
                 hiResCtx.fillText(element.text, element.x, element.y);
             });
+
+            // Draw photo text if enabled
+            if (state.showPhotoText) {
+                const currentText = document.getElementById('textContent')?.value.trim();
+                if (currentText) {
+                    const fontSize = parseInt(document.getElementById('fontSize')?.value) || 60;
+                    const fontFamily = document.getElementById('fontFamily')?.value || 'Impact';
+                    const color = document.getElementById('textColor')?.value || '#000000';
+
+                    hiResCtx.font = `bold ${fontSize}px ${fontFamily}`;
+                    hiResCtx.fillStyle = color;
+                    hiResCtx.textAlign = 'center';
+
+                    let textY;
+                    switch (state.photoTextPosition) {
+                        case 'top':
+                            textY = fontSize + 30;
+                            break;
+                        case 'center':
+                            textY = canvas.height / 2;
+                            break;
+                        case 'bottom':
+                        default:
+                            textY = canvas.height - 50;
+                            break;
+                    }
+                    hiResCtx.fillText(currentText, canvas.width / 2, textY);
+                }
+            }
         } else if (state.designType === 'logo' && state.logoImage) {
             // For logo mode, redraw everything at high resolution
             // Background
