@@ -662,7 +662,7 @@
                                         </svg>
                                         Single
                                     </button>
-                                    <button class="pattern-btn active" data-pattern="grid">
+                                    <button class="pattern-btn" data-pattern="grid">
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <rect x="3" y="3" width="7" height="7"></rect>
                                             <rect x="14" y="3" width="7" height="7"></rect>
@@ -671,7 +671,7 @@
                                         </svg>
                                         Grid
                                     </button>
-                                    <button class="pattern-btn" data-pattern="diagonal">
+                                    <button class="pattern-btn active" data-pattern="diagonal">
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <line x1="4" y1="4" x2="20" y2="20"></line>
                                             <line x1="4" y1="12" x2="12" y2="20"></line>
@@ -747,6 +747,51 @@
                                     <div class="setting">
                                         <label>Background Color:</label>
                                         <input type="color" id="singleBgColor" value="#ffffff" class="color-picker">
+                                    </div>
+                                    <div class="setting checkbox-setting">
+                                        <label>
+                                            <input type="checkbox" id="showSingleLogoBg">
+                                            Show Background Behind Logo
+                                        </label>
+                                    </div>
+                                    <div id="singleLogoBgSettings" class="sub-settings hidden">
+                                        <div class="setting">
+                                            <label>Background Size:</label>
+                                            <input type="range" id="singleLogoBgSize" min="100" max="200" value="120">
+                                            <span id="singleLogoBgSizeValue">120%</span>
+                                        </div>
+                                        <div class="setting">
+                                            <label>Background Color:</label>
+                                            <input type="color" id="singleLogoBgColor" value="#ffffff" class="color-picker">
+                                        </div>
+                                        <div class="setting">
+                                            <label>Background Shape:</label>
+                                            <select id="singleLogoBgShape" class="font-select">
+                                                <option value="rectangle">Rectangle</option>
+                                                <option value="circle">Circle</option>
+                                                <option value="rounded">Rounded Rectangle</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="setting checkbox-setting">
+                                        <label>
+                                            <input type="checkbox" id="showSingleText">
+                                            Show Text Below Logo
+                                        </label>
+                                    </div>
+                                    <div id="singleTextSettings" class="sub-settings hidden">
+                                        <div class="setting">
+                                            <label>Text:</label>
+                                            <input type="text" id="singleText" value="YOUR LOGO" placeholder="Enter text">
+                                        </div>
+                                        <div class="setting">
+                                            <label>Tagline:</label>
+                                            <input type="text" id="singleTagline" value="TAGLINE HERE" placeholder="Enter tagline">
+                                        </div>
+                                        <div class="setting">
+                                            <label>Text Color:</label>
+                                            <input type="color" id="singleTextColor" value="#333333" class="color-picker">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
