@@ -198,7 +198,7 @@ let state = {
     backgroundType: 'solid',
     textElements: [],
     logoImage: null,
-    patternStyle: 'grid',
+    patternStyle: 'diagonal',
     logoSize: 150,
     patternSpacing: 20,
     patternBgColor: '#ffffff',
@@ -210,6 +210,16 @@ let state = {
     singleLogoSize: 200,
     singleLogoX: 0.5,  // 0-1 ratio of canvas width
     singleLogoY: 0.5,  // 0-1 ratio of canvas height
+    // Single logo background
+    showSingleLogoBg: false,
+    singleLogoBgSize: 120,  // percentage of logo size
+    singleLogoBgColor: '#ffffff',
+    singleLogoBgShape: 'rectangle',
+    // Single logo text
+    showSingleText: false,
+    singleText: 'YOUR LOGO',
+    singleTagline: 'TAGLINE HERE',
+    singleTextColor: '#333333',
     // Highlight mode controls
     highlightSize: 250,
     highlightText: 'YOUR LOGO',
@@ -484,6 +494,73 @@ function initLogoControls() {
         });
     }
 
+    // Single logo background controls
+    const showSingleLogoBg = document.getElementById('showSingleLogoBg');
+    const singleLogoBgSize = document.getElementById('singleLogoBgSize');
+    const singleLogoBgColor = document.getElementById('singleLogoBgColor');
+    const singleLogoBgShape = document.getElementById('singleLogoBgShape');
+
+    if (showSingleLogoBg) {
+        showSingleLogoBg.addEventListener('change', function() {
+            state.showSingleLogoBg = this.checked;
+            const bgSettings = document.getElementById('singleLogoBgSettings');
+            if (bgSettings) bgSettings.classList.toggle('hidden', !this.checked);
+            updateCanvas();
+        });
+    }
+    if (singleLogoBgSize) {
+        singleLogoBgSize.addEventListener('input', function() {
+            state.singleLogoBgSize = parseInt(this.value);
+            document.getElementById('singleLogoBgSizeValue').textContent = this.value + '%';
+            updateCanvas();
+        });
+    }
+    if (singleLogoBgColor) {
+        singleLogoBgColor.addEventListener('input', function() {
+            state.singleLogoBgColor = this.value;
+            updateCanvas();
+        });
+    }
+    if (singleLogoBgShape) {
+        singleLogoBgShape.addEventListener('change', function() {
+            state.singleLogoBgShape = this.value;
+            updateCanvas();
+        });
+    }
+
+    // Single logo text controls
+    const showSingleText = document.getElementById('showSingleText');
+    const singleTextInput = document.getElementById('singleText');
+    const singleTaglineInput = document.getElementById('singleTagline');
+    const singleTextColor = document.getElementById('singleTextColor');
+
+    if (showSingleText) {
+        showSingleText.addEventListener('change', function() {
+            state.showSingleText = this.checked;
+            const textSettings = document.getElementById('singleTextSettings');
+            if (textSettings) textSettings.classList.toggle('hidden', !this.checked);
+            updateCanvas();
+        });
+    }
+    if (singleTextInput) {
+        singleTextInput.addEventListener('input', function() {
+            state.singleText = this.value;
+            updateCanvas();
+        });
+    }
+    if (singleTaglineInput) {
+        singleTaglineInput.addEventListener('input', function() {
+            state.singleTagline = this.value;
+            updateCanvas();
+        });
+    }
+    if (singleTextColor) {
+        singleTextColor.addEventListener('input', function() {
+            state.singleTextColor = this.value;
+            updateCanvas();
+        });
+    }
+
     // Position buttons for single logo
     document.querySelectorAll('.position-btn').forEach(btn => {
         btn.addEventListener('click', handlePositionChange);
@@ -616,7 +693,7 @@ function resetDesignState() {
     state.backgroundType = 'solid';
     state.textElements = [];
     state.logoImage = null;
-    state.patternStyle = 'grid';
+    state.patternStyle = 'diagonal';
     state.logoSize = 150;
     state.patternSpacing = 20;
     state.patternBgColor = '#ffffff';
@@ -626,6 +703,14 @@ function resetDesignState() {
     state.singleLogoSize = 200;
     state.singleLogoX = 0.5;
     state.singleLogoY = 0.5;
+    state.showSingleLogoBg = false;
+    state.singleLogoBgSize = 120;
+    state.singleLogoBgColor = '#ffffff';
+    state.singleLogoBgShape = 'rectangle';
+    state.showSingleText = false;
+    state.singleText = 'YOUR LOGO';
+    state.singleTagline = 'TAGLINE HERE';
+    state.singleTextColor = '#333333';
     state.highlightSize = 250;
     state.highlightText = 'YOUR LOGO';
     state.highlightTagline = 'TAGLINE HERE';
@@ -664,7 +749,7 @@ function resetDesignState() {
     // Reset pattern buttons
     document.querySelectorAll('.pattern-btn').forEach(btn => {
         btn.classList.remove('active');
-        if (btn.dataset.pattern === 'grid') btn.classList.add('active');
+        if (btn.dataset.pattern === 'diagonal') btn.classList.add('active');
     });
 
     // Reset sliders
@@ -703,6 +788,36 @@ function resetDesignState() {
         singleLogoSizeEl.value = 200;
         document.getElementById('singleLogoSizeValue').textContent = '200px';
     }
+
+    // Reset single logo background controls
+    const showSingleLogoBgEl = document.getElementById('showSingleLogoBg');
+    const singleLogoBgSizeEl = document.getElementById('singleLogoBgSize');
+    const singleLogoBgColorEl = document.getElementById('singleLogoBgColor');
+    const singleLogoBgShapeEl = document.getElementById('singleLogoBgShape');
+    const singleLogoBgSettings = document.getElementById('singleLogoBgSettings');
+
+    if (showSingleLogoBgEl) showSingleLogoBgEl.checked = false;
+    if (singleLogoBgSizeEl) {
+        singleLogoBgSizeEl.value = 120;
+        const sizeValue = document.getElementById('singleLogoBgSizeValue');
+        if (sizeValue) sizeValue.textContent = '120%';
+    }
+    if (singleLogoBgColorEl) singleLogoBgColorEl.value = '#ffffff';
+    if (singleLogoBgShapeEl) singleLogoBgShapeEl.value = 'rectangle';
+    if (singleLogoBgSettings) singleLogoBgSettings.classList.add('hidden');
+
+    // Reset single logo text controls
+    const showSingleTextEl = document.getElementById('showSingleText');
+    const singleTextEl = document.getElementById('singleText');
+    const singleTaglineEl = document.getElementById('singleTagline');
+    const singleTextColorEl = document.getElementById('singleTextColor');
+    const singleTextSettings = document.getElementById('singleTextSettings');
+
+    if (showSingleTextEl) showSingleTextEl.checked = false;
+    if (singleTextEl) singleTextEl.value = 'YOUR LOGO';
+    if (singleTaglineEl) singleTaglineEl.value = 'TAGLINE HERE';
+    if (singleTextColorEl) singleTextColorEl.value = '#333333';
+    if (singleTextSettings) singleTextSettings.classList.add('hidden');
 
     // Reset highlight controls
     const highlightSizeEl = document.getElementById('highlightSize');
@@ -1262,9 +1377,53 @@ function drawLogoMode() {
     if (state.patternStyle === 'single') {
         const singleWidth = state.singleLogoSize;
         const singleHeight = (state.logoImage.height / state.logoImage.width) * singleWidth;
+        const textOffset = state.showSingleText ? 50 : 0;
         const x = canvas.width * state.singleLogoX - singleWidth / 2;
-        const y = canvas.height * state.singleLogoY - singleHeight / 2;
+        const y = canvas.height * state.singleLogoY - singleHeight / 2 - textOffset / 2;
+
+        // Draw background behind logo if enabled
+        if (state.showSingleLogoBg) {
+            const bgScale = state.singleLogoBgSize / 100;
+            const bgWidth = singleWidth * bgScale;
+            const bgHeight = singleHeight * bgScale;
+            const bgX = x - (bgWidth - singleWidth) / 2;
+            const bgY = y - (bgHeight - singleHeight) / 2;
+
+            ctx.fillStyle = state.singleLogoBgColor;
+
+            if (state.singleLogoBgShape === 'circle') {
+                const radius = Math.max(bgWidth, bgHeight) / 2;
+                const centerX = x + singleWidth / 2;
+                const centerY = y + singleHeight / 2;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (state.singleLogoBgShape === 'rounded') {
+                const radius = Math.min(bgWidth, bgHeight) * 0.1;
+                ctx.beginPath();
+                ctx.roundRect(bgX, bgY, bgWidth, bgHeight, radius);
+                ctx.fill();
+            } else {
+                ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
+            }
+        }
+
         ctx.drawImage(state.logoImage, x, y, singleWidth, singleHeight);
+
+        // Draw text below logo if enabled
+        if (state.showSingleText) {
+            ctx.font = 'bold 36px Arial';
+            ctx.fillStyle = state.singleTextColor;
+            ctx.textAlign = 'center';
+            ctx.fillText(state.singleText, canvas.width * state.singleLogoX, y + singleHeight + 45);
+
+            ctx.font = '18px Arial';
+            const taglineColor = state.singleTextColor + 'aa'; // slightly transparent
+            ctx.fillStyle = state.singleTextColor;
+            ctx.globalAlpha = 0.7;
+            ctx.fillText(state.singleTagline, canvas.width * state.singleLogoX, y + singleHeight + 75);
+            ctx.globalAlpha = 1;
+        }
         return;
     }
 
