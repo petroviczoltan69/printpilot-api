@@ -51,15 +51,7 @@ module.exports = async function handler(req, res) {
         const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
         const imageBuffer = Buffer.from(base64Data, 'base64');
 
-        // Detect image orientation and match PDF to it
-        const imageIsLandscape = detectImageOrientation(imageBuffer);
-        const dimsAreLandscape = widthInches > heightInches;
-
-        if (imageIsLandscape !== null && imageIsLandscape !== dimsAreLandscape) {
-            console.log(`Swapping dimensions: image is ${imageIsLandscape ? 'landscape' : 'portrait'}`);
-            [widthInches, heightInches] = [heightInches, widthInches];
-        }
-
+        // Use dimensions as provided by frontend (already correct orientation)
         // Calculate dimensions in points (72 points per inch)
         const PPI = 72;
 
@@ -141,47 +133,6 @@ module.exports = async function handler(req, res) {
         });
     }
 };
-
-// Detect image orientation from JPEG/PNG headers
-function detectImageOrientation(buffer) {
-    try {
-        if (buffer[0] === 0xFF && buffer[1] === 0xD8) {
-            return detectJpegOrientation(buffer);
-        }
-        if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
-            return detectPngOrientation(buffer);
-        }
-        return null;
-    } catch (e) {
-        return null;
-    }
-}
-
-function detectJpegOrientation(buffer) {
-    let offset = 2;
-    while (offset < buffer.length) {
-        if (buffer[offset] !== 0xFF) break;
-        const marker = buffer[offset + 1];
-        if ((marker >= 0xC0 && marker <= 0xC3) || (marker >= 0xC5 && marker <= 0xC7) ||
-            (marker >= 0xC9 && marker <= 0xCB) || (marker >= 0xCD && marker <= 0xCF)) {
-            const height = buffer.readUInt16BE(offset + 5);
-            const width = buffer.readUInt16BE(offset + 7);
-            return width > height;
-        }
-        const length = buffer.readUInt16BE(offset + 2);
-        offset += 2 + length;
-    }
-    return null;
-}
-
-function detectPngOrientation(buffer) {
-    if (buffer.length > 24) {
-        const width = buffer.readUInt32BE(16);
-        const height = buffer.readUInt32BE(20);
-        return width > height;
-    }
-    return null;
-}
 
 // Add PDF metadata
 function addPrintReadyMetadata(pdfBuffer, boxes) {
