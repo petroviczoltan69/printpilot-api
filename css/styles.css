@@ -851,7 +851,7 @@ a:hover {
 }
 
 .control-section {
-    padding: 28px;
+    padding: 16px 20px;
     border-bottom: 1px solid var(--border);
 }
 
@@ -862,33 +862,38 @@ a:hover {
 .control-title {
     display: flex;
     align-items: center;
-    gap: 12px;
-    font-size: 1rem;
-    margin-bottom: 20px;
+    gap: 10px;
+    font-size: 0.9rem;
+    margin-bottom: 12px;
 }
 
 .control-number {
-    width: 28px;
-    height: 28px;
+    width: 22px;
+    height: 22px;
     background: var(--primary);
     color: white;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     font-weight: 600;
 }
 
 /* Upload Zone */
 .upload-zone {
     border: 2px dashed var(--border);
-    border-radius: var(--radius-lg);
-    padding: 40px 24px;
+    border-radius: var(--radius-md);
+    padding: 24px 16px;
     text-align: center;
     cursor: pointer;
     transition: var(--transition);
     background: var(--bg-light);
+}
+
+.upload-zone svg {
+    width: 32px;
+    height: 32px;
 }
 
 .upload-zone:hover,
@@ -1094,16 +1099,21 @@ a:hover {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-    padding: 16px 12px;
+    gap: 4px;
+    padding: 8px 6px;
     background: var(--bg-light);
     border: 2px solid var(--border);
-    border-radius: var(--radius-md);
-    font-size: 0.85rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
     font-weight: 500;
     font-family: inherit;
     cursor: pointer;
     transition: var(--transition);
+}
+
+.pattern-btn svg {
+    width: 20px;
+    height: 20px;
 }
 
 .pattern-btn:hover,
@@ -1113,32 +1123,39 @@ a:hover {
     background: var(--primary-light);
 }
 
+.pattern-options {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
 .pattern-settings {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 10px;
 }
 
 .setting {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
 }
 
 .setting label {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     color: var(--text-medium);
 }
 
 .setting input[type="range"] {
     width: 100%;
+    height: 4px;
 }
 
 .setting input[type="text"] {
-    padding: 8px 12px;
+    padding: 6px 10px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     font-family: inherit;
 }
 
@@ -1147,61 +1164,114 @@ a:hover {
     border-color: var(--primary);
 }
 
+/* Inline setting - label and control on same row */
+.setting-inline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.setting-inline label {
+    font-size: 0.8rem;
+    color: var(--text-medium);
+    white-space: nowrap;
+}
+
+.setting-inline input[type="range"] {
+    flex: 1;
+    max-width: 120px;
+}
+
+.setting-inline input[type="color"] {
+    width: 32px;
+    height: 24px;
+}
+
+.setting-inline span {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    min-width: 40px;
+    text-align: right;
+}
+
 .checkbox-setting label {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     cursor: pointer;
+    font-size: 0.8rem;
 }
 
 .checkbox-setting input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
+    width: 14px;
+    height: 14px;
     cursor: pointer;
 }
 
 /* Sub-settings (nested under checkboxes) */
 .sub-settings {
-    margin-left: 12px;
-    padding-left: 12px;
+    margin-left: 8px;
+    padding-left: 10px;
     border-left: 2px solid var(--border);
-    margin-top: 8px;
+    margin-top: 6px;
 }
 
 .sub-settings .setting {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 
 .sub-settings .setting:last-child {
     margin-bottom: 0;
 }
 
+/* Compact font select */
+.font-select {
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+/* Compact color picker */
+.color-picker-small {
+    width: 28px;
+    height: 22px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
 /* Position Controls */
 .position-controls {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 .position-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(3, 1fr);
+    display: flex;
     gap: 4px;
-    max-width: 120px;
+    flex-wrap: wrap;
+    max-width: 180px;
 }
 
 .position-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 28px;
+    height: 28px;
     background: var(--bg-light);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     cursor: pointer;
     transition: var(--transition);
+}
+
+.position-btn svg {
+    width: 14px;
+    height: 14px;
 }
 
 .position-btn:hover {
@@ -1259,7 +1329,7 @@ a:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
 }
 
 .preview-header h4 {
@@ -1268,9 +1338,33 @@ a:hover {
 }
 
 .preview-header span {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: var(--text-medium);
     font-weight: 500;
+}
+
+/* Preview Options */
+.preview-options {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: var(--bg-light);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+}
+
+.preview-options label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    color: var(--text-medium);
+}
+
+.preview-options input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
 }
 
 .canvas-wrapper {
@@ -1278,11 +1372,47 @@ a:hover {
     border-radius: var(--radius-md);
     overflow: hidden;
     border: 1px solid var(--border);
+    position: relative;
 }
 
 .canvas-wrapper canvas {
     width: 100%;
     display: block;
+}
+
+/* Bleed Marks Overlay */
+.bleed-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    display: none;
+}
+
+.bleed-overlay.active {
+    display: block;
+}
+
+.bleed-mark {
+    position: absolute;
+    background: #ff0000;
+}
+
+/* Corner marks */
+.bleed-mark.corner-tl-h { top: 10px; left: 0; width: 15px; height: 1px; }
+.bleed-mark.corner-tl-v { top: 0; left: 10px; width: 1px; height: 15px; }
+.bleed-mark.corner-tr-h { top: 10px; right: 0; width: 15px; height: 1px; }
+.bleed-mark.corner-tr-v { top: 0; right: 10px; width: 1px; height: 15px; }
+.bleed-mark.corner-bl-h { bottom: 10px; left: 0; width: 15px; height: 1px; }
+.bleed-mark.corner-bl-v { bottom: 0; left: 10px; width: 1px; height: 15px; }
+.bleed-mark.corner-br-h { bottom: 10px; right: 0; width: 15px; height: 1px; }
+.bleed-mark.corner-br-v { bottom: 0; right: 10px; width: 1px; height: 15px; }
+
+/* Bleed area indicator */
+.bleed-area {
+    position: absolute;
+    inset: 8px;
+    border: 1px dashed rgba(255, 0, 0, 0.5);
+    pointer-events: none;
 }
 
 .loading-indicator {
