@@ -543,55 +543,97 @@
                                 </h4>
                                 <div class="upload-zone" id="uploadZone">
                                     <input type="file" id="imageUpload" accept="image/*" class="hidden">
-                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                         <polyline points="17 8 12 3 7 8"></polyline>
                                         <line x1="12" y1="3" x2="12" y2="15"></line>
                                     </svg>
-                                    <p>Click or drag to upload</p>
-                                    <span>PNG, JPG up to 10MB</span>
+                                    <p>Upload photo (PNG, JPG)</p>
                                 </div>
                                 <div id="uploadedImage" class="uploaded-image hidden">
-                                    <img id="imagePreview" src="" alt="Preview">
+                                    <img id="imagePreview" src="" alt="Preview" style="max-height: 80px;">
                                     <button id="removeImage" class="remove-image-btn">Remove</button>
                                 </div>
                                 <button id="removeBackground" class="btn btn-ai hidden">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"></path>
                                     </svg>
                                     Remove Background (AI)
                                 </button>
                             </div>
 
-                            <div class="control-section">
+                            <!-- Image Position & Scale Controls -->
+                            <div id="photoImageControls" class="control-section hidden">
                                 <h4 class="control-title">
                                     <span class="control-number">2</span>
+                                    Image
+                                </h4>
+                                <div class="pattern-settings">
+                                    <div class="setting-inline">
+                                        <label>Scale</label>
+                                        <input type="range" id="photoImageScale" min="10" max="200" value="100">
+                                        <span id="photoImageScaleValue">100%</span>
+                                    </div>
+                                    <div class="setting-inline">
+                                        <label>Position</label>
+                                        <div class="position-grid">
+                                            <button class="position-btn" data-direction="up" data-target="photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg></button>
+                                            <button class="position-btn" data-direction="down" data-target="photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+                                            <button class="position-btn" data-direction="left" data-target="photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+                                            <button class="position-btn" data-direction="right" data-target="photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+                                            <button class="position-btn" data-direction="center" data-target="photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle></svg></button>
+                                        </div>
+                                    </div>
+                                    <div class="setting-inline">
+                                        <label>Fit Mode</label>
+                                        <select id="photoFitMode" class="font-select" style="flex:1">
+                                            <option value="cover">Cover (Fill)</option>
+                                            <option value="contain">Contain (Fit)</option>
+                                            <option value="free">Free Position</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="control-section">
+                                <h4 class="control-title">
+                                    <span class="control-number">3</span>
                                     Background
                                 </h4>
                                 <div class="bg-type-selector">
-                                    <button class="bg-type-btn active" data-bg="solid">Solid Color</button>
+                                    <button class="bg-type-btn active" data-bg="solid">Solid</button>
                                     <button class="bg-type-btn" data-bg="gradient">Gradient</button>
-                                    <button class="bg-type-btn" data-bg="ai">AI Generated</button>
+                                    <button class="bg-type-btn" data-bg="ai">AI</button>
                                 </div>
 
                                 <div id="solidBgOptions" class="bg-options">
-                                    <label>Pick Color:</label>
-                                    <input type="color" id="bgColor" value="#ffffff" class="color-picker">
+                                    <div class="setting-inline">
+                                        <label>Color</label>
+                                        <input type="color" id="bgColor" value="#ffffff" class="color-picker">
+                                    </div>
                                 </div>
 
                                 <div id="gradientBgOptions" class="bg-options hidden">
-                                    <label>Gradient Colors:</label>
-                                    <div class="gradient-colors">
+                                    <div class="setting-inline">
+                                        <label>Colors</label>
                                         <input type="color" id="gradColor1" value="#667eea" class="color-picker">
                                         <input type="color" id="gradColor2" value="#764ba2" class="color-picker">
+                                    </div>
+                                    <div class="setting-inline">
+                                        <label>Direction</label>
+                                        <select id="gradDirection" class="font-select" style="flex:1">
+                                            <option value="horizontal">Horizontal</option>
+                                            <option value="vertical">Vertical</option>
+                                            <option value="diagonal">Diagonal</option>
+                                            <option value="radial">Radial</option>
+                                        </select>
                                     </div>
                                 </div>
 
                                 <div id="aiBgOptions" class="bg-options hidden">
-                                    <label>Describe Background:</label>
-                                    <textarea id="aiPrompt" placeholder="Modern geometric pattern with blue and gold accents..."></textarea>
-                                    <button id="generateBackground" class="btn btn-ai">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <textarea id="aiPrompt" placeholder="Describe background..." style="font-size: 0.8rem; padding: 8px; min-height: 60px;"></textarea>
+                                    <button id="generateBackground" class="btn btn-ai btn-full">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"></path>
                                         </svg>
                                         Generate with AI
@@ -601,29 +643,41 @@
 
                             <div class="control-section">
                                 <h4 class="control-title">
-                                    <span class="control-number">3</span>
-                                    Add Text (Optional)
+                                    <span class="control-number">4</span>
+                                    Text
                                 </h4>
-                                <input type="text" id="textContent" placeholder="Enter your text..." class="text-input">
-                                <div class="text-options">
-                                    <div class="text-option">
-                                        <label>Font Size:</label>
-                                        <input type="range" id="fontSize" min="20" max="200" value="60">
-                                        <span id="fontSizeValue">60px</span>
+                                <div class="pattern-settings">
+                                    <div class="setting checkbox-setting">
+                                        <label><input type="checkbox" id="showPhotoText"> Add Text</label>
                                     </div>
-                                    <div class="text-option">
-                                        <label>Color:</label>
-                                        <input type="color" id="textColor" value="#000000" class="color-picker-small">
+                                    <div id="photoTextSettings" class="sub-settings hidden">
+                                        <div class="setting-inline">
+                                            <input type="text" id="textContent" placeholder="Enter text..." style="flex:1">
+                                            <input type="color" id="textColor" value="#000000" class="color-picker-small">
+                                        </div>
+                                        <div class="setting-inline">
+                                            <label>Size</label>
+                                            <input type="range" id="fontSize" min="20" max="200" value="60">
+                                            <span id="fontSizeValue">60px</span>
+                                        </div>
+                                        <div class="setting-inline">
+                                            <select id="fontFamily" class="font-select" style="flex:1">
+                                                <option value="Impact">Impact</option>
+                                                <option value="Arial Black">Arial Black</option>
+                                                <option value="Georgia">Georgia</option>
+                                                <option value="Helvetica">Helvetica</option>
+                                            </select>
+                                        </div>
+                                        <div class="setting-inline">
+                                            <label>Position</label>
+                                            <select id="photoTextPosition" class="font-select" style="flex:1">
+                                                <option value="top">Top</option>
+                                                <option value="center">Center</option>
+                                                <option value="bottom">Bottom</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
-                                <select id="fontFamily" class="font-select">
-                                    <option value="Impact">Impact (Bold)</option>
-                                    <option value="Arial Black">Arial Black</option>
-                                    <option value="Georgia">Georgia (Serif)</option>
-                                    <option value="Helvetica">Helvetica</option>
-                                    <option value="Verdana">Verdana</option>
-                                </select>
-                                <button id="addText" class="btn btn-secondary btn-full">Add Text</button>
                             </div>
                         </div>
 
