@@ -1160,6 +1160,22 @@ a:hover {
     cursor: pointer;
 }
 
+/* Sub-settings (nested under checkboxes) */
+.sub-settings {
+    margin-left: 12px;
+    padding-left: 12px;
+    border-left: 2px solid var(--border);
+    margin-top: 8px;
+}
+
+.sub-settings .setting {
+    margin-bottom: 12px;
+}
+
+.sub-settings .setting:last-child {
+    margin-bottom: 0;
+}
+
 /* Position Controls */
 .position-controls {
     display: flex;
