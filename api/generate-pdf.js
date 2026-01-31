@@ -70,8 +70,13 @@ module.exports = async function handler(req, res) {
         const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
         const imageBuffer = Buffer.from(base64Data, 'base64');
 
+        // First, normalize the image to PNG to avoid JPEG parsing issues
+        const normalizedImage = await sharp(imageBuffer)
+            .png()
+            .toBuffer();
+
         // Process image with Sharp - convert to CMYK raw pixels
-        const cmykImage = await sharp(imageBuffer)
+        const cmykImage = await sharp(normalizedImage)
             .resize(pixelWidth, pixelHeight, {
                 fit: 'cover',
                 position: 'center',
