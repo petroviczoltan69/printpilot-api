@@ -1167,58 +1167,126 @@ function handleAddToCart() {
 }
 
 // ========== Download PDF ==========
-function downloadPDF() {
-    if (!canvas || typeof window.jspdf === 'undefined') {
-        alert('PDF generation not available. Please try again.');
+async function downloadPDF() {
+    if (!canvas || !state.currentProduct || !state.selectedSize) {
+        alert('Please complete your design first.');
         return;
     }
 
     showLoading(true);
 
     try {
+        // Get canvas image data
+        const imageData = canvas.toDataURL('image/png', 1.0);
+
+        // Parse size dimensions from label (e.g., "2ft x 4ft" or "24" x 36"")
+        const sizeLabel = state.selectedSize.label;
+        let width, height, unit;
+
+        // Check for feet (ft)
+        const ftMatch = sizeLabel.match(/(\d+(?:\.\d+)?)\s*ft?\s*x\s*(\d+(?:\.\d+)?)\s*ft?/i);
+        // Check for inches (", in, inches)
+        const inMatch = sizeLabel.match(/(\d+(?:\.\d+)?)["\s]*(?:in|inches?)?\s*x\s*(\d+(?:\.\d+)?)["\s]*(?:in|inches?)?/i);
+
+        if (ftMatch) {
+            width = parseFloat(ftMatch[1]);
+            height = parseFloat(ftMatch[2]);
+            unit = 'ft';
+        } else if (inMatch) {
+            width = parseFloat(inMatch[1]);
+            height = parseFloat(inMatch[2]);
+            unit = 'in';
+        } else {
+            // Fallback to product data
+            width = state.selectedSize.width;
+            height = state.selectedSize.height;
+            unit = width > 20 ? 'in' : 'ft'; // Guess based on size
+        }
+
+        console.log(`Generating PDF: ${width} x ${height} ${unit}`);
+
+        // Call server API for CMYK PDF generation
+        const response = await fetch(`${CONFIG.API_URL}/api/generate-pdf`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                imageData: imageData,
+                width: width,
+                height: height,
+                unit: unit,
+                dpi: 150,
+                productName: state.currentProduct.name
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'PDF generation failed');
+        }
+
+        const data = await response.json();
+
+        if (data.success && data.pdf) {
+            // Download the PDF
+            const link = document.createElement('a');
+            link.href = data.pdf;
+            link.download = data.filename || 'PrintPilot_Design_CMYK_PRINT.pdf';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // Show specs to user
+            const specs = data.specs;
+            showSuccess(`PDF Downloaded! ${specs.dimensions} at ${specs.dpi} DPI, ${specs.colorSpace}`);
+
+            console.log('PDF Specs:', specs);
+        } else {
+            throw new Error('No PDF data in response');
+        }
+
+    } catch (error) {
+        console.error('PDF generation error:', error);
+
+        // Fallback to client-side PDF if server fails
+        if (typeof window.jspdf !== 'undefined') {
+            console.log('Falling back to client-side PDF generation...');
+            downloadPDFFallback();
+        } else {
+            alert(`Error generating PDF: ${error.message}`);
+        }
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Fallback client-side PDF (RGB only)
+function downloadPDFFallback() {
+    try {
         const { jsPDF } = window.jspdf;
 
-        // Get canvas dimensions
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
-
-        // Calculate PDF size (in mm, at 150 DPI for print)
         const dpi = 150;
         const mmPerInch = 25.4;
-        const pdfWidth = (canvasWidth / dpi) * mmPerInch;
-        const pdfHeight = (canvasHeight / dpi) * mmPerInch;
+        const pdfWidth = (canvas.width / dpi) * mmPerInch;
+        const pdfHeight = (canvas.height / dpi) * mmPerInch;
 
-        // Create PDF with custom size
         const pdf = new jsPDF({
             orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
             unit: 'mm',
             format: [pdfWidth, pdfHeight]
         });
 
-        // Get canvas as image
         const imgData = canvas.toDataURL('image/jpeg', 1.0);
-
-        // Add image to PDF
         pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
 
-        // Add bleed marks info
-        pdf.setFontSize(8);
-        pdf.setTextColor(128, 128, 128);
-
-        // Generate filename
         const productName = state.currentProduct?.name || 'design';
         const size = state.selectedSize?.label || '';
-        const filename = `PrintPilot_${productName.replace(/\s+/g, '_')}_${size.replace(/\s+/g, '_')}_PRINT.pdf`;
+        const filename = `PrintPilot_${productName.replace(/\s+/g, '_')}_${size.replace(/\s+/g, '_')}_RGB_PRINT.pdf`;
 
-        // Save PDF
         pdf.save(filename);
-
-        showSuccess('PDF downloaded! Ready for print.');
+        showSuccess('PDF downloaded (RGB fallback)');
     } catch (error) {
-        console.error('PDF generation error:', error);
+        console.error('Fallback PDF error:', error);
         alert('Error generating PDF. Please try again.');
-    } finally {
-        showLoading(false);
     }
 }
 
