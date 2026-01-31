@@ -635,14 +635,14 @@
                                     Upload Logo
                                 </h4>
                                 <div class="upload-zone" id="logoUploadZone">
-                                    <input type="file" id="logoUpload" accept="image/*" class="hidden">
+                                    <input type="file" id="logoUpload" accept="image/*,.svg" class="hidden">
                                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                         <polyline points="17 8 12 3 7 8"></polyline>
                                         <line x1="12" y1="3" x2="12" y2="15"></line>
                                     </svg>
                                     <p>Upload your logo</p>
-                                    <span>PNG with transparency works best</span>
+                                    <span>SVG recommended for best quality, PNG also supported</span>
                                 </div>
                                 <div id="uploadedLogo" class="uploaded-image hidden">
                                     <img id="logoPreview" src="" alt="Logo Preview">
@@ -750,33 +750,8 @@
                                     </div>
                                     <div class="setting checkbox-setting">
                                         <label>
-                                            <input type="checkbox" id="showSingleLogoBg">
-                                            Show Background Behind Logo
-                                        </label>
-                                    </div>
-                                    <div id="singleLogoBgSettings" class="sub-settings hidden">
-                                        <div class="setting">
-                                            <label>Background Size:</label>
-                                            <input type="range" id="singleLogoBgSize" min="100" max="200" value="120">
-                                            <span id="singleLogoBgSizeValue">120%</span>
-                                        </div>
-                                        <div class="setting">
-                                            <label>Background Color:</label>
-                                            <input type="color" id="singleLogoBgColor" value="#ffffff" class="color-picker">
-                                        </div>
-                                        <div class="setting">
-                                            <label>Background Shape:</label>
-                                            <select id="singleLogoBgShape" class="font-select">
-                                                <option value="rectangle">Rectangle</option>
-                                                <option value="circle">Circle</option>
-                                                <option value="rounded">Rounded Rectangle</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="setting checkbox-setting">
-                                        <label>
                                             <input type="checkbox" id="showSingleText">
-                                            Show Text Below Logo
+                                            Show Main Text
                                         </label>
                                     </div>
                                     <div id="singleTextSettings" class="sub-settings hidden">
@@ -785,12 +760,45 @@
                                             <input type="text" id="singleText" value="YOUR LOGO" placeholder="Enter text">
                                         </div>
                                         <div class="setting">
-                                            <label>Tagline:</label>
-                                            <input type="text" id="singleTagline" value="TAGLINE HERE" placeholder="Enter tagline">
+                                            <label>Font:</label>
+                                            <select id="singleTextFont" class="font-select">
+                                                <option value="Arial Black">Arial Black</option>
+                                                <option value="Impact">Impact</option>
+                                                <option value="Georgia">Georgia</option>
+                                                <option value="Helvetica">Helvetica</option>
+                                                <option value="Verdana">Verdana</option>
+                                                <option value="Times New Roman">Times New Roman</option>
+                                            </select>
                                         </div>
                                         <div class="setting">
                                             <label>Text Color:</label>
                                             <input type="color" id="singleTextColor" value="#333333" class="color-picker">
+                                        </div>
+                                    </div>
+                                    <div class="setting checkbox-setting">
+                                        <label>
+                                            <input type="checkbox" id="showSingleTagline">
+                                            Show Tagline
+                                        </label>
+                                    </div>
+                                    <div id="singleTaglineSettings" class="sub-settings hidden">
+                                        <div class="setting">
+                                            <label>Tagline:</label>
+                                            <input type="text" id="singleTagline" value="TAGLINE HERE" placeholder="Enter tagline">
+                                        </div>
+                                        <div class="setting">
+                                            <label>Font:</label>
+                                            <select id="singleTaglineFont" class="font-select">
+                                                <option value="Arial">Arial</option>
+                                                <option value="Helvetica">Helvetica</option>
+                                                <option value="Georgia">Georgia</option>
+                                                <option value="Verdana">Verdana</option>
+                                                <option value="Times New Roman">Times New Roman</option>
+                                            </select>
+                                        </div>
+                                        <div class="setting">
+                                            <label>Tagline Color:</label>
+                                            <input type="color" id="singleTaglineColor" value="#666666" class="color-picker">
                                         </div>
                                     </div>
                                 </div>
@@ -849,17 +857,81 @@
                                     </div>
                                     <div class="setting checkbox-setting">
                                         <label>
-                                            <input type="checkbox" id="showHighlightText" checked>
-                                            Show Text Below Logo
+                                            <input type="checkbox" id="showHighlightBg">
+                                            Show Background Behind Logo
                                         </label>
                                     </div>
-                                    <div class="setting" id="highlightTextSettings">
-                                        <label>Text:</label>
-                                        <input type="text" id="highlightText" value="YOUR LOGO" placeholder="Enter text">
+                                    <div id="highlightBgSettings" class="sub-settings hidden">
+                                        <div class="setting">
+                                            <label>Background Size:</label>
+                                            <input type="range" id="highlightBgSize" min="100" max="200" value="120">
+                                            <span id="highlightBgSizeValue">120%</span>
+                                        </div>
+                                        <div class="setting">
+                                            <label>Background Color:</label>
+                                            <input type="color" id="highlightBgColor" value="#ffffff" class="color-picker">
+                                        </div>
+                                        <div class="setting">
+                                            <label>Background Shape:</label>
+                                            <select id="highlightBgShape" class="font-select">
+                                                <option value="rectangle">Rectangle</option>
+                                                <option value="circle">Circle</option>
+                                                <option value="rounded">Rounded Rectangle</option>
+                                            </select>
+                                        </div>
                                     </div>
-                                    <div class="setting" id="highlightTaglineSettings">
-                                        <label>Tagline:</label>
-                                        <input type="text" id="highlightTagline" value="TAGLINE HERE" placeholder="Enter tagline">
+                                    <div class="setting checkbox-setting">
+                                        <label>
+                                            <input type="checkbox" id="showHighlightText" checked>
+                                            Show Main Text
+                                        </label>
+                                    </div>
+                                    <div id="highlightTextSettings" class="sub-settings">
+                                        <div class="setting">
+                                            <label>Text:</label>
+                                            <input type="text" id="highlightText" value="YOUR LOGO" placeholder="Enter text">
+                                        </div>
+                                        <div class="setting">
+                                            <label>Font:</label>
+                                            <select id="highlightTextFont" class="font-select">
+                                                <option value="Arial Black">Arial Black</option>
+                                                <option value="Impact">Impact</option>
+                                                <option value="Georgia">Georgia</option>
+                                                <option value="Helvetica">Helvetica</option>
+                                                <option value="Verdana">Verdana</option>
+                                                <option value="Times New Roman">Times New Roman</option>
+                                            </select>
+                                        </div>
+                                        <div class="setting">
+                                            <label>Text Color:</label>
+                                            <input type="color" id="highlightTextColor" value="#333333" class="color-picker">
+                                        </div>
+                                    </div>
+                                    <div class="setting checkbox-setting">
+                                        <label>
+                                            <input type="checkbox" id="showHighlightTagline" checked>
+                                            Show Tagline
+                                        </label>
+                                    </div>
+                                    <div id="highlightTaglineSettings" class="sub-settings">
+                                        <div class="setting">
+                                            <label>Tagline:</label>
+                                            <input type="text" id="highlightTagline" value="TAGLINE HERE" placeholder="Enter tagline">
+                                        </div>
+                                        <div class="setting">
+                                            <label>Font:</label>
+                                            <select id="highlightTaglineFont" class="font-select">
+                                                <option value="Arial">Arial</option>
+                                                <option value="Helvetica">Helvetica</option>
+                                                <option value="Georgia">Georgia</option>
+                                                <option value="Verdana">Verdana</option>
+                                                <option value="Times New Roman">Times New Roman</option>
+                                            </select>
+                                        </div>
+                                        <div class="setting">
+                                            <label>Tagline Color:</label>
+                                            <input type="color" id="highlightTaglineColor" value="#666666" class="color-picker">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
