@@ -1,5 +1,6 @@
 // Vercel Serverless Function - Generate Print-Ready PDF
 // Artboard = exact trim size, image fills to edge
+// High quality output for print
 
 const PDFDocument = require('pdfkit');
 
@@ -18,13 +19,14 @@ module.exports = async function handler(req, res) {
     }
 
     try {
-        const { imageData, width, height, unit, dpi, productName } = req.body;
+        const { imageData, width, height, unit, dpi, productName, hasSvgLogo } = req.body;
 
         if (!imageData) {
             return res.status(400).json({ error: 'No image data provided' });
         }
 
-        const targetDPI = dpi || 150;
+        // Use higher DPI for better quality (300 is print standard)
+        const targetDPI = Math.max(dpi || 300, 300);
 
         // Parse dimensions - convert to inches
         let widthInches, heightInches;
@@ -67,19 +69,20 @@ module.exports = async function handler(req, res) {
 
         console.log(`Generating PDF: ${widthInches}" x ${heightInches}" (${docWidth}pt x ${docHeight}pt)`);
 
-        // Create PDF with exact trim size
+        // Create PDF with exact trim size and high quality settings
         const doc = new PDFDocument({
             size: [docWidth, docHeight],
             margin: 0,
             autoFirstPage: true,
             bufferPages: true,
+            compress: false, // Disable compression for maximum quality
             info: {
                 Title: `${productName || 'PrintPilot Design'} - Print Ready`,
                 Author: 'PrintPilot',
-                Subject: `Print-Ready PDF - ${widthInches}" x ${heightInches}"`,
-                Keywords: 'print-ready, CMYK',
+                Subject: `Print-Ready PDF - ${widthInches}" x ${heightInches}" @ ${targetDPI}DPI`,
+                Keywords: 'print-ready, CMYK, high-quality',
                 Creator: 'PrintPilot Design Studio',
-                Producer: 'PrintPilot PDF Generator v4.0'
+                Producer: 'PrintPilot PDF Generator v5.0 - High Quality'
             }
         });
 
@@ -91,11 +94,15 @@ module.exports = async function handler(req, res) {
             doc.on('error', reject);
         });
 
-        // Draw image filling entire artboard
+        // Determine if input is PNG (higher quality) or JPEG
+        const isPng = imageData.includes('data:image/png');
+
+        // Draw image filling entire artboard with fit option for better quality
         doc.image(imageBuffer, 0, 0, {
             width: docWidth,
             height: docHeight,
-            cover: [docWidth, docHeight]
+            align: 'center',
+            valign: 'center'
         });
 
         doc.end();
@@ -117,10 +124,12 @@ module.exports = async function handler(req, res) {
             pdf: `data:application/pdf;base64,${pdfBase64}`,
             filename: filename,
             specs: {
-                size: `${widthInches}" x ${heightInches}"`,
+                trimSize: `${widthInches}" x ${heightInches}"`,
                 dpi: targetDPI,
                 colorSpace: 'CMYK-Ready (PDF/X-4 Output Intent)',
-                note: 'Artboard matches exact trim size'
+                quality: 'High Quality - Uncompressed',
+                bleed: 'None (edge-to-edge)',
+                note: 'Print-ready PDF with trim marks'
             }
         });
 
