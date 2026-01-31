@@ -1242,6 +1242,23 @@ a:hover {
     cursor: pointer;
 }
 
+/* Text layers */
+.text-layer {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.text-layer:last-child {
+    border-bottom: none;
+}
+
+.text-layer .sub-settings {
+    margin-top: 8px;
+    margin-left: 0;
+    padding-left: 8px;
+    border-left: 2px solid var(--primary-light);
+}
+
 /* Position Controls */
 .position-controls {
     display: flex;
