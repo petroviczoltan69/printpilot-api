@@ -1204,6 +1204,16 @@ async function downloadPDF() {
             unit = width > 20 ? 'in' : 'ft'; // Guess based on size
         }
 
+        // Match PDF orientation to canvas orientation
+        // Canvas ratio > 1 means landscape (width > height)
+        const canvasIsLandscape = canvas.width > canvas.height;
+        const dimsAreLandscape = width > height;
+
+        // Swap dimensions if orientations don't match
+        if (canvasIsLandscape !== dimsAreLandscape) {
+            [width, height] = [height, width];
+        }
+
         console.log(`Generating PDF: ${width} x ${height} ${unit}`);
 
         // Call server API for CMYK PDF generation
@@ -1228,17 +1238,30 @@ async function downloadPDF() {
         const data = await response.json();
 
         if (data.success && data.pdf) {
-            // Download the PDF
+            // Convert base64 to Blob for reliable download (Chrome blocks data: URLs)
+            const base64Data = data.pdf.split(',')[1];
+            const binaryString = atob(base64Data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            const blob = new Blob([bytes], { type: 'application/pdf' });
+
+            // Create object URL and download
+            const blobUrl = URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = data.pdf;
-            link.download = data.filename || 'PrintPilot_Design_CMYK_PRINT.pdf';
+            link.href = blobUrl;
+            link.download = data.filename || 'PrintPilot_Design_PRINT.pdf';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
 
+            // Clean up blob URL
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+
             // Show specs to user
             const specs = data.specs;
-            showSuccess(`PDF Downloaded! ${specs.dimensions} at ${specs.dpi} DPI, ${specs.colorSpace}`);
+            showSuccess(`PDF Downloaded! Trim: ${specs.trimSize} | Bleed: ${specs.bleed} | ${specs.colorSpace}`);
 
             console.log('PDF Specs:', specs);
         } else {
