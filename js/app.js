@@ -201,7 +201,20 @@ let state = {
     patternStyle: 'grid',
     logoSize: 150,
     patternSpacing: 20,
-    patternBgColor: '#ffffff'
+    patternBgColor: '#ffffff',
+    // New pattern controls
+    patternRotation: 0,
+    patternOffsetX: 0,
+    patternOffsetY: 0,
+    // Single logo controls
+    singleLogoSize: 200,
+    singleLogoX: 0.5,  // 0-1 ratio of canvas width
+    singleLogoY: 0.5,  // 0-1 ratio of canvas height
+    // Highlight mode controls
+    highlightSize: 250,
+    highlightText: 'YOUR LOGO',
+    highlightTagline: 'TAGLINE HERE',
+    showHighlightText: true
 };
 
 // ========== DOM Elements ==========
@@ -403,9 +416,13 @@ function initLogoControls() {
         btn.addEventListener('click', handlePatternStyleChange);
     });
 
+    // Pattern controls
     const logoSize = document.getElementById('logoSize');
     const patternSpacing = document.getElementById('patternSpacing');
     const patternBgColor = document.getElementById('patternBgColor');
+    const patternRotation = document.getElementById('patternRotation');
+    const patternOffsetX = document.getElementById('patternOffsetX');
+    const patternOffsetY = document.getElementById('patternOffsetY');
 
     if (logoSize) {
         logoSize.addEventListener('input', function() {
@@ -427,6 +444,115 @@ function initLogoControls() {
             updateCanvas();
         });
     }
+    if (patternRotation) {
+        patternRotation.addEventListener('input', function() {
+            state.patternRotation = parseInt(this.value);
+            document.getElementById('rotationValue').textContent = this.value + '°';
+            updateCanvas();
+        });
+    }
+    if (patternOffsetX) {
+        patternOffsetX.addEventListener('input', function() {
+            state.patternOffsetX = parseInt(this.value);
+            document.getElementById('offsetXValue').textContent = this.value + 'px';
+            updateCanvas();
+        });
+    }
+    if (patternOffsetY) {
+        patternOffsetY.addEventListener('input', function() {
+            state.patternOffsetY = parseInt(this.value);
+            document.getElementById('offsetYValue').textContent = this.value + 'px';
+            updateCanvas();
+        });
+    }
+
+    // Single logo controls
+    const singleLogoSize = document.getElementById('singleLogoSize');
+    const singleBgColor = document.getElementById('singleBgColor');
+
+    if (singleLogoSize) {
+        singleLogoSize.addEventListener('input', function() {
+            state.singleLogoSize = parseInt(this.value);
+            document.getElementById('singleLogoSizeValue').textContent = this.value + 'px';
+            updateCanvas();
+        });
+    }
+    if (singleBgColor) {
+        singleBgColor.addEventListener('input', function() {
+            state.patternBgColor = this.value;
+            updateCanvas();
+        });
+    }
+
+    // Position buttons for single logo
+    document.querySelectorAll('.position-btn').forEach(btn => {
+        btn.addEventListener('click', handlePositionChange);
+    });
+
+    // Highlight controls
+    const highlightSize = document.getElementById('highlightSize');
+    const highlightText = document.getElementById('highlightText');
+    const highlightTagline = document.getElementById('highlightTagline');
+    const showHighlightText = document.getElementById('showHighlightText');
+
+    if (highlightSize) {
+        highlightSize.addEventListener('input', function() {
+            state.highlightSize = parseInt(this.value);
+            document.getElementById('highlightSizeValue').textContent = this.value + 'px';
+            updateCanvas();
+        });
+    }
+    if (highlightText) {
+        highlightText.addEventListener('input', function() {
+            state.highlightText = this.value;
+            updateCanvas();
+        });
+    }
+    if (highlightTagline) {
+        highlightTagline.addEventListener('input', function() {
+            state.highlightTagline = this.value;
+            updateCanvas();
+        });
+    }
+    if (showHighlightText) {
+        showHighlightText.addEventListener('change', function() {
+            state.showHighlightText = this.checked;
+            const textSettings = document.getElementById('highlightTextSettings');
+            const taglineSettings = document.getElementById('highlightTaglineSettings');
+            if (textSettings) textSettings.style.display = this.checked ? 'flex' : 'none';
+            if (taglineSettings) taglineSettings.style.display = this.checked ? 'flex' : 'none';
+            updateCanvas();
+        });
+    }
+}
+
+// Handle position button clicks for single logo
+function handlePositionChange(e) {
+    const btn = e.target.closest('.position-btn');
+    if (!btn) return;
+
+    const direction = btn.dataset.direction;
+    const step = 0.05; // 5% of canvas
+
+    switch (direction) {
+        case 'up':
+            state.singleLogoY = Math.max(0.1, state.singleLogoY - step);
+            break;
+        case 'down':
+            state.singleLogoY = Math.min(0.9, state.singleLogoY + step);
+            break;
+        case 'left':
+            state.singleLogoX = Math.max(0.1, state.singleLogoX - step);
+            break;
+        case 'right':
+            state.singleLogoX = Math.min(0.9, state.singleLogoX + step);
+            break;
+        case 'center':
+            state.singleLogoX = 0.5;
+            state.singleLogoY = 0.5;
+            break;
+    }
+    updateCanvas();
 }
 
 // ========== Category Filter ==========
@@ -494,6 +620,16 @@ function resetDesignState() {
     state.logoSize = 150;
     state.patternSpacing = 20;
     state.patternBgColor = '#ffffff';
+    state.patternRotation = 0;
+    state.patternOffsetX = 0;
+    state.patternOffsetY = 0;
+    state.singleLogoSize = 200;
+    state.singleLogoX = 0.5;
+    state.singleLogoY = 0.5;
+    state.highlightSize = 250;
+    state.highlightText = 'YOUR LOGO';
+    state.highlightTagline = 'TAGLINE HERE';
+    state.showHighlightText = true;
 
     // Reset UI elements
     document.getElementById('uploadedImage')?.classList.add('hidden');
@@ -535,6 +671,9 @@ function resetDesignState() {
     const logoSizeEl = document.getElementById('logoSize');
     const spacingEl = document.getElementById('patternSpacing');
     const patternBgEl = document.getElementById('patternBgColor');
+    const rotationEl = document.getElementById('patternRotation');
+    const offsetXEl = document.getElementById('patternOffsetX');
+    const offsetYEl = document.getElementById('patternOffsetY');
 
     if (logoSizeEl) {
         logoSizeEl.value = 150;
@@ -545,6 +684,44 @@ function resetDesignState() {
         document.getElementById('spacingValue').textContent = '20px';
     }
     if (patternBgEl) patternBgEl.value = '#ffffff';
+    if (rotationEl) {
+        rotationEl.value = 0;
+        document.getElementById('rotationValue').textContent = '0°';
+    }
+    if (offsetXEl) {
+        offsetXEl.value = 0;
+        document.getElementById('offsetXValue').textContent = '0px';
+    }
+    if (offsetYEl) {
+        offsetYEl.value = 0;
+        document.getElementById('offsetYValue').textContent = '0px';
+    }
+
+    // Reset single logo controls
+    const singleLogoSizeEl = document.getElementById('singleLogoSize');
+    if (singleLogoSizeEl) {
+        singleLogoSizeEl.value = 200;
+        document.getElementById('singleLogoSizeValue').textContent = '200px';
+    }
+
+    // Reset highlight controls
+    const highlightSizeEl = document.getElementById('highlightSize');
+    const highlightTextEl = document.getElementById('highlightText');
+    const highlightTaglineEl = document.getElementById('highlightTagline');
+    const showHighlightTextEl = document.getElementById('showHighlightText');
+
+    if (highlightSizeEl) {
+        highlightSizeEl.value = 250;
+        document.getElementById('highlightSizeValue').textContent = '250px';
+    }
+    if (highlightTextEl) highlightTextEl.value = 'YOUR LOGO';
+    if (highlightTaglineEl) highlightTaglineEl.value = 'TAGLINE HERE';
+    if (showHighlightTextEl) showHighlightTextEl.checked = true;
+
+    // Show/hide control panels
+    document.getElementById('singleLogoControls')?.classList.add('hidden');
+    document.getElementById('patternControls')?.classList.remove('hidden');
+    document.getElementById('highlightControls')?.classList.add('hidden');
 
     // Clear text input
     const textContent = document.getElementById('textContent');
@@ -939,6 +1116,25 @@ function handlePatternStyleChange(e) {
     document.querySelectorAll('.pattern-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 
+    // Show/hide appropriate controls based on pattern style
+    const singleControls = document.getElementById('singleLogoControls');
+    const patternControls = document.getElementById('patternControls');
+    const highlightControls = document.getElementById('highlightControls');
+
+    if (state.patternStyle === 'single') {
+        singleControls?.classList.remove('hidden');
+        patternControls?.classList.add('hidden');
+        highlightControls?.classList.add('hidden');
+    } else if (state.patternStyle === 'highlight') {
+        singleControls?.classList.add('hidden');
+        patternControls?.classList.remove('hidden');
+        highlightControls?.classList.remove('hidden');
+    } else {
+        singleControls?.classList.add('hidden');
+        patternControls?.classList.remove('hidden');
+        highlightControls?.classList.add('hidden');
+    }
+
     updateCanvas();
 }
 
@@ -1058,35 +1254,96 @@ function drawLogoMode() {
     const logoWidth = state.logoSize;
     const logoHeight = (state.logoImage.height / state.logoImage.width) * logoWidth;
     const spacing = state.patternSpacing;
+    const offsetX = state.patternOffsetX || 0;
+    const offsetY = state.patternOffsetY || 0;
+    const rotation = (state.patternRotation || 0) * Math.PI / 180;
+
+    // Single logo mode
+    if (state.patternStyle === 'single') {
+        const singleWidth = state.singleLogoSize;
+        const singleHeight = (state.logoImage.height / state.logoImage.width) * singleWidth;
+        const x = canvas.width * state.singleLogoX - singleWidth / 2;
+        const y = canvas.height * state.singleLogoY - singleHeight / 2;
+        ctx.drawImage(state.logoImage, x, y, singleWidth, singleHeight);
+        return;
+    }
+
+    // Highlight mode - grid with centered large logo
+    if (state.patternStyle === 'highlight') {
+        // Draw background pattern (smaller logos)
+        ctx.save();
+        ctx.translate(canvas.width / 2 + offsetX, canvas.height / 2 + offsetY);
+        ctx.rotate(rotation);
+        ctx.translate(-canvas.width / 2, -canvas.height / 2);
+
+        const smallLogoWidth = logoWidth * 0.6;
+        const smallLogoHeight = (state.logoImage.height / state.logoImage.width) * smallLogoWidth;
+
+        let rowIndex = 0;
+        for (let y = -smallLogoHeight * 2; y < canvas.height + smallLogoHeight * 2; y += smallLogoHeight + spacing) {
+            const rowOffset = rowIndex % 2 === 0 ? 0 : (smallLogoWidth + spacing) / 2;
+            for (let x = -smallLogoWidth * 2 + rowOffset; x < canvas.width + smallLogoWidth * 2; x += smallLogoWidth + spacing) {
+                ctx.globalAlpha = 0.3;
+                ctx.drawImage(state.logoImage, x, y, smallLogoWidth, smallLogoHeight);
+            }
+            rowIndex++;
+        }
+        ctx.restore();
+        ctx.globalAlpha = 1;
+
+        // Draw center highlight logo
+        const highlightWidth = state.highlightSize;
+        const highlightHeight = (state.logoImage.height / state.logoImage.width) * highlightWidth;
+        const centerX = canvas.width / 2 - highlightWidth / 2;
+        const centerY = canvas.height / 2 - highlightHeight / 2 - (state.showHighlightText ? 40 : 0);
+
+        ctx.drawImage(state.logoImage, centerX, centerY, highlightWidth, highlightHeight);
+
+        // Draw text below if enabled
+        if (state.showHighlightText) {
+            ctx.font = 'bold 36px Arial';
+            ctx.fillStyle = '#333333';
+            ctx.textAlign = 'center';
+            ctx.fillText(state.highlightText, canvas.width / 2, centerY + highlightHeight + 45);
+
+            ctx.font = '18px Arial';
+            ctx.fillStyle = '#666666';
+            ctx.fillText(state.highlightTagline, canvas.width / 2, centerY + highlightHeight + 75);
+        }
+        return;
+    }
+
+    // Grid, Diagonal, Offset patterns with rotation and offset support
+    ctx.save();
+    ctx.translate(canvas.width / 2 + offsetX, canvas.height / 2 + offsetY);
+    ctx.rotate(rotation);
+    ctx.translate(-canvas.width / 2, -canvas.height / 2);
 
     if (state.patternStyle === 'grid') {
-        for (let y = -logoHeight; y < canvas.height + logoHeight; y += logoHeight + spacing) {
-            for (let x = -logoWidth; x < canvas.width + logoWidth; x += logoWidth + spacing) {
+        for (let y = -logoHeight * 2; y < canvas.height + logoHeight * 2; y += logoHeight + spacing) {
+            for (let x = -logoWidth * 2; x < canvas.width + logoWidth * 2; x += logoWidth + spacing) {
                 ctx.drawImage(state.logoImage, x, y, logoWidth, logoHeight);
             }
         }
     } else if (state.patternStyle === 'diagonal') {
-        ctx.save();
-        ctx.translate(canvas.width / 2, canvas.height / 2);
         ctx.rotate(-Math.PI / 6);
-        ctx.translate(-canvas.width, -canvas.height);
-
-        for (let y = -logoHeight * 2; y < canvas.height * 3; y += logoHeight + spacing) {
-            for (let x = -logoWidth * 2; x < canvas.width * 3; x += logoWidth + spacing) {
+        for (let y = -logoHeight * 3; y < canvas.height * 3; y += logoHeight + spacing) {
+            for (let x = -logoWidth * 3; x < canvas.width * 3; x += logoWidth + spacing) {
                 ctx.drawImage(state.logoImage, x, y, logoWidth, logoHeight);
             }
         }
-        ctx.restore();
     } else if (state.patternStyle === 'offset') {
         let rowIndex = 0;
-        for (let y = -logoHeight; y < canvas.height + logoHeight; y += logoHeight + spacing) {
-            const offset = rowIndex % 2 === 0 ? 0 : (logoWidth + spacing) / 2;
-            for (let x = -logoWidth + offset; x < canvas.width + logoWidth; x += logoWidth + spacing) {
+        for (let y = -logoHeight * 2; y < canvas.height + logoHeight * 2; y += logoHeight + spacing) {
+            const rowOffset = rowIndex % 2 === 0 ? 0 : (logoWidth + spacing) / 2;
+            for (let x = -logoWidth * 2 + rowOffset; x < canvas.width + logoWidth * 2; x += logoWidth + spacing) {
                 ctx.drawImage(state.logoImage, x, y, logoWidth, logoHeight);
             }
             rowIndex++;
         }
     }
+
+    ctx.restore();
 }
 
 // ========== Update Review Panel ==========
