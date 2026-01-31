@@ -1,5 +1,5 @@
 // Vercel Serverless Function - Generate Print-Ready PDF
-// Artboard = TrimBox (exact size), Bleed extends outside
+// Artboard = exact trim size, image fills to edge
 
 const PDFDocument = require('pdfkit');
 
@@ -25,7 +25,6 @@ module.exports = async function handler(req, res) {
         }
 
         const targetDPI = dpi || 150;
-        const bleedInches = 0.125; // 1/8 inch = 3.175mm
 
         // Parse dimensions - convert to inches
         let widthInches, heightInches;
@@ -61,32 +60,26 @@ module.exports = async function handler(req, res) {
 
         // Calculate dimensions in points (72 points per inch)
         const PPI = 72;
-        const bleedPts = bleedInches * PPI;
 
-        // Trim size (artboard) - exact final size
-        const trimWidth = widthInches * PPI;
-        const trimHeight = heightInches * PPI;
+        // Artboard/document size = exact trim size
+        const docWidth = widthInches * PPI;
+        const docHeight = heightInches * PPI;
 
-        // Total size with bleed
-        const totalWidth = trimWidth + (bleedPts * 2);
-        const totalHeight = trimHeight + (bleedPts * 2);
+        console.log(`Generating PDF: ${widthInches}" x ${heightInches}" (${docWidth}pt x ${docHeight}pt)`);
 
-        console.log(`Generating PDF: Trim ${widthInches}" x ${heightInches}", Total with bleed: ${widthInches + bleedInches*2}" x ${heightInches + bleedInches*2}"`);
-
-        // Create PDF with TOTAL SIZE (including bleed) as MediaBox
-        // But TrimBox will define the artboard in Illustrator
+        // Create PDF with exact trim size
         const doc = new PDFDocument({
-            size: [totalWidth, totalHeight],
+            size: [docWidth, docHeight],
             margin: 0,
             autoFirstPage: true,
             bufferPages: true,
             info: {
                 Title: `${productName || 'PrintPilot Design'} - Print Ready`,
                 Author: 'PrintPilot',
-                Subject: `Print-Ready PDF - ${widthInches}" x ${heightInches}" trim with ${bleedInches}" bleed`,
-                Keywords: 'print-ready, CMYK, bleed, trim',
+                Subject: `Print-Ready PDF - ${widthInches}" x ${heightInches}"`,
+                Keywords: 'print-ready, CMYK',
                 Creator: 'PrintPilot Design Studio',
-                Producer: 'PrintPilot PDF Generator v3.1'
+                Producer: 'PrintPilot PDF Generator v4.0'
             }
         });
 
@@ -98,43 +91,36 @@ module.exports = async function handler(req, res) {
             doc.on('error', reject);
         });
 
-        // Draw image filling entire page (including bleed area)
+        // Draw image filling entire artboard
         doc.image(imageBuffer, 0, 0, {
-            width: totalWidth,
-            height: totalHeight,
-            cover: [totalWidth, totalHeight]
+            width: docWidth,
+            height: docHeight,
+            cover: [docWidth, docHeight]
         });
 
         doc.end();
 
         let pdfBuffer = await pdfPromise;
 
-        // Set PDF boxes so Illustrator shows correct artboard:
-        // - MediaBox = full page with bleed (what we created)
-        // - TrimBox = artboard (inset by bleed amount) - THIS IS WHAT AI USES AS ARTBOARD
-        // - BleedBox = same as MediaBox
-        // - ArtBox = same as TrimBox
+        // Add PDF boxes and CMYK output intent
         pdfBuffer = addPrintReadyMetadata(pdfBuffer, {
-            mediaBox: [0, 0, totalWidth, totalHeight],
-            bleedBox: [0, 0, totalWidth, totalHeight],
-            trimBox: [bleedPts, bleedPts, bleedPts + trimWidth, bleedPts + trimHeight],
-            artBox: [bleedPts, bleedPts, bleedPts + trimWidth, bleedPts + trimHeight]
+            mediaBox: [0, 0, docWidth, docHeight],
+            trimBox: [0, 0, docWidth, docHeight],
+            artBox: [0, 0, docWidth, docHeight]
         });
 
         const pdfBase64 = pdfBuffer.toString('base64');
-        const filename = `PrintPilot_${(productName || 'Design').replace(/\s+/g, '_')}_${widthInches}x${heightInches}in_bleed_CMYK_PRINT.pdf`;
+        const filename = `PrintPilot_${(productName || 'Design').replace(/\s+/g, '_')}_${widthInches}x${heightInches}in_PRINT.pdf`;
 
         return res.status(200).json({
             success: true,
             pdf: `data:application/pdf;base64,${pdfBase64}`,
             filename: filename,
             specs: {
-                artboardSize: `${widthInches}" x ${heightInches}"`,
-                totalWithBleed: `${(widthInches + bleedInches * 2).toFixed(3)}" x ${(heightInches + bleedInches * 2).toFixed(3)}"`,
-                bleed: `${bleedInches}" (${(bleedInches * 25.4).toFixed(1)}mm)`,
+                size: `${widthInches}" x ${heightInches}"`,
                 dpi: targetDPI,
                 colorSpace: 'CMYK-Ready (PDF/X-4 Output Intent)',
-                note: 'TrimBox defines artboard, bleed extends outside'
+                note: 'Artboard matches exact trim size'
             }
         });
 
@@ -188,23 +174,21 @@ function detectPngOrientation(buffer) {
     return null;
 }
 
-// Add PDF boxes and Output Intent
+// Add PDF metadata
 function addPrintReadyMetadata(pdfBuffer, boxes) {
     let pdfString = pdfBuffer.toString('binary');
 
-    const { mediaBox, bleedBox, trimBox, artBox } = boxes;
+    const { trimBox, artBox } = boxes;
 
-    // Find and replace/add boxes in Page object
-    // PDFKit creates MediaBox, we need to add TrimBox, BleedBox, ArtBox
+    // Add TrimBox and ArtBox to Page object
     const pagePattern = /(\/Type\s*\/Page\b[^>]*?)(>>)/;
     const match = pdfString.match(pagePattern);
 
     if (match) {
         const trimBoxStr = `/TrimBox [${trimBox.map(n => n.toFixed(4)).join(' ')}]`;
-        const bleedBoxStr = `/BleedBox [${bleedBox.map(n => n.toFixed(4)).join(' ')}]`;
         const artBoxStr = `/ArtBox [${artBox.map(n => n.toFixed(4)).join(' ')}]`;
 
-        const boxesStr = ` ${trimBoxStr} ${bleedBoxStr} ${artBoxStr} `;
+        const boxesStr = ` ${trimBoxStr} ${artBoxStr} `;
         const replacement = match[1] + boxesStr + match[2];
         pdfString = pdfString.replace(pagePattern, replacement);
     }
