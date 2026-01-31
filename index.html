@@ -636,16 +636,15 @@
                                 </h4>
                                 <div class="upload-zone" id="logoUploadZone">
                                     <input type="file" id="logoUpload" accept="image/*,.svg" class="hidden">
-                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                         <polyline points="17 8 12 3 7 8"></polyline>
                                         <line x1="12" y1="3" x2="12" y2="15"></line>
                                     </svg>
-                                    <p>Upload your logo</p>
-                                    <span>SVG recommended for best quality, PNG also supported</span>
+                                    <p>Upload logo (SVG or PNG)</p>
                                 </div>
                                 <div id="uploadedLogo" class="uploaded-image hidden">
-                                    <img id="logoPreview" src="" alt="Logo Preview">
+                                    <img id="logoPreview" src="" alt="Logo Preview" style="max-height: 80px;">
                                     <button id="removeLogo" class="remove-image-btn">Remove</button>
                                 </div>
                             </div>
@@ -657,13 +656,13 @@
                                 </h4>
                                 <div class="pattern-options">
                                     <button class="pattern-btn" data-pattern="single">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <rect x="6" y="6" width="12" height="12"></rect>
                                         </svg>
                                         Single
                                     </button>
                                     <button class="pattern-btn" data-pattern="grid">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <rect x="3" y="3" width="7" height="7"></rect>
                                             <rect x="14" y="3" width="7" height="7"></rect>
                                             <rect x="14" y="14" width="7" height="7"></rect>
@@ -672,7 +671,7 @@
                                         Grid
                                     </button>
                                     <button class="pattern-btn active" data-pattern="diagonal">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <line x1="4" y1="4" x2="20" y2="20"></line>
                                             <line x1="4" y1="12" x2="12" y2="20"></line>
                                             <line x1="12" y1="4" x2="20" y2="12"></line>
@@ -680,17 +679,17 @@
                                         Diagonal
                                     </button>
                                     <button class="pattern-btn" data-pattern="offset">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <rect x="3" y="3" width="6" height="6"></rect>
                                             <rect x="15" y="3" width="6" height="6"></rect>
                                             <rect x="9" y="9" width="6" height="6"></rect>
                                             <rect x="3" y="15" width="6" height="6"></rect>
                                             <rect x="15" y="15" width="6" height="6"></rect>
                                         </svg>
-                                        Step & Repeat
+                                        Offset
                                     </button>
                                     <button class="pattern-btn" data-pattern="highlight">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <rect x="8" y="8" width="8" height="8"></rect>
                                             <rect x="2" y="2" width="4" height="4"></rect>
                                             <rect x="18" y="2" width="4" height="4"></rect>
@@ -706,99 +705,59 @@
                             <div id="singleLogoControls" class="control-section hidden">
                                 <h4 class="control-title">
                                     <span class="control-number">3</span>
-                                    Position & Size
+                                    Single Logo
                                 </h4>
                                 <div class="pattern-settings">
-                                    <div class="setting">
-                                        <label>Logo Size:</label>
+                                    <div class="setting-inline">
+                                        <label>Size</label>
                                         <input type="range" id="singleLogoSize" min="50" max="500" value="200">
                                         <span id="singleLogoSizeValue">200px</span>
                                     </div>
-                                    <div class="position-controls">
-                                        <label>Position:</label>
+                                    <div class="setting-inline">
+                                        <label>Position</label>
                                         <div class="position-grid">
-                                            <button class="position-btn" data-direction="up" title="Move Up">
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <polyline points="18 15 12 9 6 15"></polyline>
-                                                </svg>
-                                            </button>
-                                            <button class="position-btn" data-direction="left" title="Move Left">
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <polyline points="15 18 9 12 15 6"></polyline>
-                                                </svg>
-                                            </button>
-                                            <button class="position-btn center-btn" data-direction="center" title="Center">
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <circle cx="12" cy="12" r="3"></circle>
-                                                </svg>
-                                            </button>
-                                            <button class="position-btn" data-direction="right" title="Move Right">
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <polyline points="9 18 15 12 9 6"></polyline>
-                                                </svg>
-                                            </button>
-                                            <button class="position-btn" data-direction="down" title="Move Down">
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <polyline points="6 9 12 15 18 9"></polyline>
-                                                </svg>
-                                            </button>
+                                            <button class="position-btn" data-direction="up" title="Up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg></button>
+                                            <button class="position-btn" data-direction="down" title="Down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+                                            <button class="position-btn" data-direction="left" title="Left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+                                            <button class="position-btn" data-direction="right" title="Right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+                                            <button class="position-btn" data-direction="center" title="Center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle></svg></button>
                                         </div>
                                     </div>
-                                    <div class="setting">
-                                        <label>Background Color:</label>
+                                    <div class="setting-inline">
+                                        <label>Background</label>
                                         <input type="color" id="singleBgColor" value="#ffffff" class="color-picker">
                                     </div>
                                     <div class="setting checkbox-setting">
-                                        <label>
-                                            <input type="checkbox" id="showSingleText">
-                                            Show Main Text
-                                        </label>
+                                        <label><input type="checkbox" id="showSingleText"> Text</label>
                                     </div>
                                     <div id="singleTextSettings" class="sub-settings hidden">
-                                        <div class="setting">
-                                            <label>Text:</label>
-                                            <input type="text" id="singleText" value="YOUR LOGO" placeholder="Enter text">
+                                        <div class="setting-inline">
+                                            <input type="text" id="singleText" value="YOUR LOGO" placeholder="Text" style="flex:1">
+                                            <input type="color" id="singleTextColor" value="#333333" class="color-picker-small">
                                         </div>
-                                        <div class="setting">
-                                            <label>Font:</label>
-                                            <select id="singleTextFont" class="font-select">
+                                        <div class="setting-inline">
+                                            <select id="singleTextFont" class="font-select" style="flex:1">
                                                 <option value="Arial Black">Arial Black</option>
                                                 <option value="Impact">Impact</option>
                                                 <option value="Georgia">Georgia</option>
                                                 <option value="Helvetica">Helvetica</option>
-                                                <option value="Verdana">Verdana</option>
-                                                <option value="Times New Roman">Times New Roman</option>
                                             </select>
-                                        </div>
-                                        <div class="setting">
-                                            <label>Text Color:</label>
-                                            <input type="color" id="singleTextColor" value="#333333" class="color-picker">
                                         </div>
                                     </div>
                                     <div class="setting checkbox-setting">
-                                        <label>
-                                            <input type="checkbox" id="showSingleTagline">
-                                            Show Tagline
-                                        </label>
+                                        <label><input type="checkbox" id="showSingleTagline"> Tagline</label>
                                     </div>
                                     <div id="singleTaglineSettings" class="sub-settings hidden">
-                                        <div class="setting">
-                                            <label>Tagline:</label>
-                                            <input type="text" id="singleTagline" value="TAGLINE HERE" placeholder="Enter tagline">
+                                        <div class="setting-inline">
+                                            <input type="text" id="singleTagline" value="TAGLINE HERE" placeholder="Tagline" style="flex:1">
+                                            <input type="color" id="singleTaglineColor" value="#666666" class="color-picker-small">
                                         </div>
-                                        <div class="setting">
-                                            <label>Font:</label>
-                                            <select id="singleTaglineFont" class="font-select">
+                                        <div class="setting-inline">
+                                            <select id="singleTaglineFont" class="font-select" style="flex:1">
                                                 <option value="Arial">Arial</option>
                                                 <option value="Helvetica">Helvetica</option>
                                                 <option value="Georgia">Georgia</option>
-                                                <option value="Verdana">Verdana</option>
-                                                <option value="Times New Roman">Times New Roman</option>
                                             </select>
-                                        </div>
-                                        <div class="setting">
-                                            <label>Tagline Color:</label>
-                                            <input type="color" id="singleTaglineColor" value="#666666" class="color-picker">
                                         </div>
                                     </div>
                                 </div>
@@ -808,36 +767,36 @@
                             <div id="patternControls" class="control-section">
                                 <h4 class="control-title">
                                     <span class="control-number">3</span>
-                                    Pattern Settings
+                                    Pattern
                                 </h4>
                                 <div class="pattern-settings">
-                                    <div class="setting">
-                                        <label>Logo Size:</label>
+                                    <div class="setting-inline">
+                                        <label>Size</label>
                                         <input type="range" id="logoSize" min="50" max="300" value="150">
                                         <span id="logoSizeValue">150px</span>
                                     </div>
-                                    <div class="setting">
-                                        <label>Spacing:</label>
+                                    <div class="setting-inline">
+                                        <label>Spacing</label>
                                         <input type="range" id="patternSpacing" min="0" max="100" value="20">
                                         <span id="spacingValue">20px</span>
                                     </div>
-                                    <div class="setting">
-                                        <label>Rotation:</label>
+                                    <div class="setting-inline">
+                                        <label>Rotation</label>
                                         <input type="range" id="patternRotation" min="0" max="360" value="0">
                                         <span id="rotationValue">0°</span>
                                     </div>
-                                    <div class="setting">
-                                        <label>Offset X:</label>
+                                    <div class="setting-inline">
+                                        <label>Offset X</label>
                                         <input type="range" id="patternOffsetX" min="-100" max="100" value="0">
-                                        <span id="offsetXValue">0px</span>
+                                        <span id="offsetXValue">0</span>
                                     </div>
-                                    <div class="setting">
-                                        <label>Offset Y:</label>
+                                    <div class="setting-inline">
+                                        <label>Offset Y</label>
                                         <input type="range" id="patternOffsetY" min="-100" max="100" value="0">
-                                        <span id="offsetYValue">0px</span>
+                                        <span id="offsetYValue">0</span>
                                     </div>
-                                    <div class="setting">
-                                        <label>Background Color:</label>
+                                    <div class="setting-inline">
+                                        <label>Background</label>
                                         <input type="color" id="patternBgColor" value="#ffffff" class="color-picker">
                                     </div>
                                 </div>
@@ -847,120 +806,74 @@
                             <div id="highlightControls" class="control-section hidden">
                                 <h4 class="control-title">
                                     <span class="control-number">4</span>
-                                    Center Logo Settings
+                                    Center Logo
                                 </h4>
                                 <div class="pattern-settings">
-                                    <div class="setting">
-                                        <label>Center Logo Size:</label>
+                                    <div class="setting-inline">
+                                        <label>Size</label>
                                         <input type="range" id="highlightSize" min="100" max="500" value="250">
                                         <span id="highlightSizeValue">250px</span>
                                     </div>
-                                    <div class="setting">
-                                        <label>Logo Position:</label>
-                                        <div class="position-grid highlight-position">
-                                            <button class="position-btn" data-direction="up" data-target="highlight">
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <polyline points="18 15 12 9 6 15"></polyline>
-                                                </svg>
-                                            </button>
-                                            <button class="position-btn" data-direction="down" data-target="highlight">
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <polyline points="6 9 12 15 18 9"></polyline>
-                                                </svg>
-                                            </button>
-                                            <button class="position-btn" data-direction="left" data-target="highlight">
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <polyline points="15 18 9 12 15 6"></polyline>
-                                                </svg>
-                                            </button>
-                                            <button class="position-btn" data-direction="right" data-target="highlight">
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <polyline points="9 18 15 12 9 6"></polyline>
-                                                </svg>
-                                            </button>
-                                            <button class="position-btn" data-direction="center" data-target="highlight">
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <circle cx="12" cy="12" r="3"></circle>
-                                                </svg>
-                                            </button>
+                                    <div class="setting-inline">
+                                        <label>Position</label>
+                                        <div class="position-grid">
+                                            <button class="position-btn" data-direction="up" data-target="highlight"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg></button>
+                                            <button class="position-btn" data-direction="down" data-target="highlight"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+                                            <button class="position-btn" data-direction="left" data-target="highlight"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+                                            <button class="position-btn" data-direction="right" data-target="highlight"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+                                            <button class="position-btn" data-direction="center" data-target="highlight"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle></svg></button>
                                         </div>
                                     </div>
                                     <div class="setting checkbox-setting">
-                                        <label>
-                                            <input type="checkbox" id="showHighlightBg">
-                                            Show Background Behind Logo
-                                        </label>
+                                        <label><input type="checkbox" id="showHighlightBg"> Background</label>
                                     </div>
                                     <div id="highlightBgSettings" class="sub-settings hidden">
-                                        <div class="setting">
-                                            <label>Background Padding:</label>
+                                        <div class="setting-inline">
+                                            <label>Padding</label>
                                             <input type="range" id="highlightBgSize" min="100" max="200" value="120">
                                             <span id="highlightBgSizeValue">20%</span>
                                         </div>
-                                        <div class="setting">
-                                            <label>Background Color:</label>
+                                        <div class="setting-inline">
+                                            <label>Color</label>
                                             <input type="color" id="highlightBgColor" value="#ffffff" class="color-picker">
-                                        </div>
-                                        <div class="setting">
-                                            <label>Background Shape:</label>
                                             <select id="highlightBgShape" class="font-select">
-                                                <option value="rectangle">Rectangle</option>
+                                                <option value="rectangle">Rect</option>
                                                 <option value="circle">Circle</option>
-                                                <option value="rounded">Rounded Rectangle</option>
+                                                <option value="rounded">Rounded</option>
                                             </select>
                                         </div>
                                     </div>
                                     <div class="setting checkbox-setting">
-                                        <label>
-                                            <input type="checkbox" id="showHighlightText" checked>
-                                            Show Main Text
-                                        </label>
+                                        <label><input type="checkbox" id="showHighlightText" checked> Text</label>
                                     </div>
                                     <div id="highlightTextSettings" class="sub-settings">
-                                        <div class="setting">
-                                            <label>Text:</label>
-                                            <input type="text" id="highlightText" value="YOUR LOGO" placeholder="Enter text">
+                                        <div class="setting-inline">
+                                            <input type="text" id="highlightText" value="YOUR LOGO" placeholder="Text" style="flex:1">
+                                            <input type="color" id="highlightTextColor" value="#333333" class="color-picker-small">
                                         </div>
-                                        <div class="setting">
-                                            <label>Font:</label>
-                                            <select id="highlightTextFont" class="font-select">
+                                        <div class="setting-inline">
+                                            <select id="highlightTextFont" class="font-select" style="flex:1">
                                                 <option value="Arial Black">Arial Black</option>
                                                 <option value="Impact">Impact</option>
                                                 <option value="Georgia">Georgia</option>
                                                 <option value="Helvetica">Helvetica</option>
-                                                <option value="Verdana">Verdana</option>
-                                                <option value="Times New Roman">Times New Roman</option>
                                             </select>
-                                        </div>
-                                        <div class="setting">
-                                            <label>Text Color:</label>
-                                            <input type="color" id="highlightTextColor" value="#333333" class="color-picker">
                                         </div>
                                     </div>
                                     <div class="setting checkbox-setting">
-                                        <label>
-                                            <input type="checkbox" id="showHighlightTagline" checked>
-                                            Show Tagline
-                                        </label>
+                                        <label><input type="checkbox" id="showHighlightTagline" checked> Tagline</label>
                                     </div>
                                     <div id="highlightTaglineSettings" class="sub-settings">
-                                        <div class="setting">
-                                            <label>Tagline:</label>
-                                            <input type="text" id="highlightTagline" value="TAGLINE HERE" placeholder="Enter tagline">
+                                        <div class="setting-inline">
+                                            <input type="text" id="highlightTagline" value="TAGLINE HERE" placeholder="Tagline" style="flex:1">
+                                            <input type="color" id="highlightTaglineColor" value="#666666" class="color-picker-small">
                                         </div>
-                                        <div class="setting">
-                                            <label>Font:</label>
-                                            <select id="highlightTaglineFont" class="font-select">
+                                        <div class="setting-inline">
+                                            <select id="highlightTaglineFont" class="font-select" style="flex:1">
                                                 <option value="Arial">Arial</option>
                                                 <option value="Helvetica">Helvetica</option>
                                                 <option value="Georgia">Georgia</option>
-                                                <option value="Verdana">Verdana</option>
-                                                <option value="Times New Roman">Times New Roman</option>
                                             </select>
-                                        </div>
-                                        <div class="setting">
-                                            <label>Tagline Color:</label>
-                                            <input type="color" id="highlightTaglineColor" value="#666666" class="color-picker">
                                         </div>
                                     </div>
                                 </div>
@@ -974,8 +887,29 @@
                             <h4>Live Preview</h4>
                             <span id="previewSize">6ft x 3ft</span>
                         </div>
+                        <div class="preview-options">
+                            <label>
+                                <input type="checkbox" id="showBleedMarks">
+                                Show Bleed Marks
+                            </label>
+                            <label>
+                                <input type="checkbox" id="showSafeArea">
+                                Safe Area
+                            </label>
+                        </div>
                         <div class="canvas-wrapper">
                             <canvas id="previewCanvas" width="1000" height="500"></canvas>
+                            <div id="bleedOverlay" class="bleed-overlay">
+                                <div class="bleed-mark corner-tl-h"></div>
+                                <div class="bleed-mark corner-tl-v"></div>
+                                <div class="bleed-mark corner-tr-h"></div>
+                                <div class="bleed-mark corner-tr-v"></div>
+                                <div class="bleed-mark corner-bl-h"></div>
+                                <div class="bleed-mark corner-bl-v"></div>
+                                <div class="bleed-mark corner-br-h"></div>
+                                <div class="bleed-mark corner-br-v"></div>
+                                <div id="safeArea" class="bleed-area" style="display: none;"></div>
+                            </div>
                         </div>
                         <div id="loadingIndicator" class="loading-indicator hidden">
                             <div class="spinner"></div>
