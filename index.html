@@ -656,6 +656,12 @@
                                     Pattern Style
                                 </h4>
                                 <div class="pattern-options">
+                                    <button class="pattern-btn" data-pattern="single">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="6" y="6" width="12" height="12"></rect>
+                                        </svg>
+                                        Single
+                                    </button>
                                     <button class="pattern-btn active" data-pattern="grid">
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <rect x="3" y="3" width="7" height="7"></rect>
@@ -683,10 +689,70 @@
                                         </svg>
                                         Step & Repeat
                                     </button>
+                                    <button class="pattern-btn" data-pattern="highlight">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="8" y="8" width="8" height="8"></rect>
+                                            <rect x="2" y="2" width="4" height="4"></rect>
+                                            <rect x="18" y="2" width="4" height="4"></rect>
+                                            <rect x="2" y="18" width="4" height="4"></rect>
+                                            <rect x="18" y="18" width="4" height="4"></rect>
+                                        </svg>
+                                        Highlight
+                                    </button>
                                 </div>
                             </div>
 
-                            <div class="control-section">
+                            <!-- Single Logo Controls (shown when Single is selected) -->
+                            <div id="singleLogoControls" class="control-section hidden">
+                                <h4 class="control-title">
+                                    <span class="control-number">3</span>
+                                    Position & Size
+                                </h4>
+                                <div class="pattern-settings">
+                                    <div class="setting">
+                                        <label>Logo Size:</label>
+                                        <input type="range" id="singleLogoSize" min="50" max="500" value="200">
+                                        <span id="singleLogoSizeValue">200px</span>
+                                    </div>
+                                    <div class="position-controls">
+                                        <label>Position:</label>
+                                        <div class="position-grid">
+                                            <button class="position-btn" data-direction="up" title="Move Up">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                                </svg>
+                                            </button>
+                                            <button class="position-btn" data-direction="left" title="Move Left">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="15 18 9 12 15 6"></polyline>
+                                                </svg>
+                                            </button>
+                                            <button class="position-btn center-btn" data-direction="center" title="Center">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <circle cx="12" cy="12" r="3"></circle>
+                                                </svg>
+                                            </button>
+                                            <button class="position-btn" data-direction="right" title="Move Right">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="9 18 15 12 9 6"></polyline>
+                                                </svg>
+                                            </button>
+                                            <button class="position-btn" data-direction="down" title="Move Down">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="setting">
+                                        <label>Background Color:</label>
+                                        <input type="color" id="singleBgColor" value="#ffffff" class="color-picker">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Pattern Controls (shown for Grid, Diagonal, Offset, Highlight) -->
+                            <div id="patternControls" class="control-section">
                                 <h4 class="control-title">
                                     <span class="control-number">3</span>
                                     Pattern Settings
@@ -703,8 +769,52 @@
                                         <span id="spacingValue">20px</span>
                                     </div>
                                     <div class="setting">
+                                        <label>Rotation:</label>
+                                        <input type="range" id="patternRotation" min="0" max="360" value="0">
+                                        <span id="rotationValue">0°</span>
+                                    </div>
+                                    <div class="setting">
+                                        <label>Offset X:</label>
+                                        <input type="range" id="patternOffsetX" min="-100" max="100" value="0">
+                                        <span id="offsetXValue">0px</span>
+                                    </div>
+                                    <div class="setting">
+                                        <label>Offset Y:</label>
+                                        <input type="range" id="patternOffsetY" min="-100" max="100" value="0">
+                                        <span id="offsetYValue">0px</span>
+                                    </div>
+                                    <div class="setting">
                                         <label>Background Color:</label>
                                         <input type="color" id="patternBgColor" value="#ffffff" class="color-picker">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Highlight Logo Settings (shown when Highlight is selected) -->
+                            <div id="highlightControls" class="control-section hidden">
+                                <h4 class="control-title">
+                                    <span class="control-number">4</span>
+                                    Center Logo Settings
+                                </h4>
+                                <div class="pattern-settings">
+                                    <div class="setting">
+                                        <label>Center Logo Size:</label>
+                                        <input type="range" id="highlightSize" min="100" max="500" value="250">
+                                        <span id="highlightSizeValue">250px</span>
+                                    </div>
+                                    <div class="setting checkbox-setting">
+                                        <label>
+                                            <input type="checkbox" id="showHighlightText" checked>
+                                            Show Text Below Logo
+                                        </label>
+                                    </div>
+                                    <div class="setting" id="highlightTextSettings">
+                                        <label>Text:</label>
+                                        <input type="text" id="highlightText" value="YOUR LOGO" placeholder="Enter text">
+                                    </div>
+                                    <div class="setting" id="highlightTaglineSettings">
+                                        <label>Tagline:</label>
+                                        <input type="text" id="highlightTagline" value="TAGLINE HERE" placeholder="Enter tagline">
                                     </div>
                                 </div>
                             </div>
