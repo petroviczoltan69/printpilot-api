@@ -616,7 +616,8 @@ function initLogoControls() {
     if (highlightBgSize) {
         highlightBgSize.addEventListener('input', function() {
             state.highlightBgSize = parseInt(this.value);
-            document.getElementById('highlightBgSizeValue').textContent = this.value + '%';
+            // Display as padding percentage (value - 100)
+            document.getElementById('highlightBgSizeValue').textContent = (this.value - 100) + '%';
             updateCanvas();
         });
     }
@@ -920,7 +921,7 @@ function resetDesignState() {
     if (highlightBgSizeEl) {
         highlightBgSizeEl.value = 120;
         const sizeValue = document.getElementById('highlightBgSizeValue');
-        if (sizeValue) sizeValue.textContent = '120%';
+        if (sizeValue) sizeValue.textContent = '20%';
     }
     if (highlightBgColorEl) highlightBgColorEl.value = '#ffffff';
     if (highlightBgShapeEl) highlightBgShapeEl.value = 'rectangle';
@@ -1608,15 +1609,19 @@ function drawLogoMode() {
 
         // Draw background behind highlight logo if enabled
         if (state.showHighlightBg) {
-            const bgScale = state.highlightBgSize / 100;
-            const bgWidth = highlightWidth * bgScale;
-            const bgHeight = highlightHeight * bgScale;
-            const bgX = centerX - (bgWidth - highlightWidth) / 2;
-            const bgY = centerY - (bgHeight - highlightHeight) / 2;
+            // Calculate padding as percentage of logo size (equal on all sides)
+            const paddingPercent = (state.highlightBgSize - 100) / 100;
+            const padding = Math.min(highlightWidth, highlightHeight) * paddingPercent;
+
+            const bgWidth = highlightWidth + padding * 2;
+            const bgHeight = highlightHeight + padding * 2;
+            const bgX = centerX - padding;
+            const bgY = centerY - padding;
 
             ctx.fillStyle = state.highlightBgColor;
 
             if (state.highlightBgShape === 'circle') {
+                // For circle, use the larger dimension to ensure logo fits
                 const radius = Math.max(bgWidth, bgHeight) / 2;
                 const circleCenterX = centerX + highlightWidth / 2;
                 const circleCenterY = centerY + highlightHeight / 2;
@@ -1624,7 +1629,7 @@ function drawLogoMode() {
                 ctx.arc(circleCenterX, circleCenterY, radius, 0, Math.PI * 2);
                 ctx.fill();
             } else if (state.highlightBgShape === 'rounded') {
-                const radius = Math.min(bgWidth, bgHeight) * 0.1;
+                const radius = padding * 0.5; // Corner radius based on padding
                 ctx.beginPath();
                 ctx.roundRect(bgX, bgY, bgWidth, bgHeight, radius);
                 ctx.fill();
@@ -1777,11 +1782,17 @@ async function downloadPDF() {
 
     try {
         // Create a high-resolution canvas for better PDF quality
-        const scaleFactor = 3; // 3x resolution for better quality
+        // 4x scale gives us ~2000x1000 base canvas -> 8000x4000 output
+        // This provides good quality for large format prints
+        const scaleFactor = 4;
         const hiResCanvas = document.createElement('canvas');
         hiResCanvas.width = canvas.width * scaleFactor;
         hiResCanvas.height = canvas.height * scaleFactor;
         const hiResCtx = hiResCanvas.getContext('2d');
+
+        // Enable high quality image rendering
+        hiResCtx.imageSmoothingEnabled = true;
+        hiResCtx.imageSmoothingQuality = 'high';
 
         // Scale and redraw at higher resolution
         hiResCtx.scale(scaleFactor, scaleFactor);
@@ -1829,8 +1840,148 @@ async function downloadPDF() {
                 hiResCtx.fillText(element.text, element.x, element.y);
             });
         } else if (state.designType === 'logo' && state.logoImage) {
-            // For logo mode, just draw the current canvas content
-            hiResCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height);
+            // For logo mode, redraw everything at high resolution
+            // Background
+            hiResCtx.fillStyle = state.patternBgColor || '#ffffff';
+            hiResCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const logoWidth = state.logoSize;
+            const logoHeight = (state.logoImage.height / state.logoImage.width) * logoWidth;
+            const spacing = state.patternSpacing;
+            const offsetX = state.patternOffsetX || 0;
+            const offsetY = state.patternOffsetY || 0;
+            const rotation = (state.patternRotation || 0) * Math.PI / 180;
+
+            if (state.patternStyle === 'single') {
+                // Single logo
+                const singleWidth = state.singleLogoSize;
+                const singleHeight = (state.logoImage.height / state.logoImage.width) * singleWidth;
+                let textOffset = 0;
+                if (state.showSingleText) textOffset += 50;
+                if (state.showSingleTagline) textOffset += 30;
+                const x = canvas.width * state.singleLogoX - singleWidth / 2;
+                const y = canvas.height * state.singleLogoY - singleHeight / 2 - textOffset / 2;
+
+                hiResCtx.drawImage(state.logoImage, x, y, singleWidth, singleHeight);
+
+                let textY = y + singleHeight + 45;
+                if (state.showSingleText) {
+                    hiResCtx.font = `bold 36px ${state.singleTextFont}`;
+                    hiResCtx.fillStyle = state.singleTextColor;
+                    hiResCtx.textAlign = 'center';
+                    hiResCtx.fillText(state.singleText, canvas.width * state.singleLogoX, textY);
+                    textY += 35;
+                }
+                if (state.showSingleTagline) {
+                    hiResCtx.font = `18px ${state.singleTaglineFont}`;
+                    hiResCtx.fillStyle = state.singleTaglineColor;
+                    hiResCtx.textAlign = 'center';
+                    hiResCtx.fillText(state.singleTagline, canvas.width * state.singleLogoX, textY);
+                }
+            } else if (state.patternStyle === 'highlight') {
+                // Highlight mode - pattern + centered logo
+                hiResCtx.save();
+                hiResCtx.translate(canvas.width / 2 + offsetX, canvas.height / 2 + offsetY);
+                hiResCtx.rotate(rotation);
+                hiResCtx.translate(-canvas.width / 2, -canvas.height / 2);
+
+                const smallLogoWidth = logoWidth * 0.6;
+                const smallLogoHeight = (state.logoImage.height / state.logoImage.width) * smallLogoWidth;
+
+                let rowIndex = 0;
+                for (let py = -smallLogoHeight * 2; py < canvas.height + smallLogoHeight * 2; py += smallLogoHeight + spacing) {
+                    const rowOffset = rowIndex % 2 === 0 ? 0 : (smallLogoWidth + spacing) / 2;
+                    for (let px = -smallLogoWidth * 2 + rowOffset; px < canvas.width + smallLogoWidth * 2; px += smallLogoWidth + spacing) {
+                        hiResCtx.globalAlpha = 0.3;
+                        hiResCtx.drawImage(state.logoImage, px, py, smallLogoWidth, smallLogoHeight);
+                    }
+                    rowIndex++;
+                }
+                hiResCtx.restore();
+                hiResCtx.globalAlpha = 1;
+
+                let textOffset = 0;
+                if (state.showHighlightText) textOffset += 50;
+                if (state.showHighlightTagline) textOffset += 30;
+
+                const highlightWidth = state.highlightSize;
+                const highlightHeight = (state.logoImage.height / state.logoImage.width) * highlightWidth;
+                const centerX = canvas.width / 2 - highlightWidth / 2;
+                const centerY = canvas.height / 2 - highlightHeight / 2 - textOffset / 2;
+
+                // Background behind highlight logo
+                if (state.showHighlightBg) {
+                    const paddingPercent = (state.highlightBgSize - 100) / 100;
+                    const padding = Math.min(highlightWidth, highlightHeight) * paddingPercent;
+                    const bgWidth = highlightWidth + padding * 2;
+                    const bgHeight = highlightHeight + padding * 2;
+                    const bgX = centerX - padding;
+                    const bgY = centerY - padding;
+
+                    hiResCtx.fillStyle = state.highlightBgColor;
+                    if (state.highlightBgShape === 'circle') {
+                        const radius = Math.max(bgWidth, bgHeight) / 2;
+                        hiResCtx.beginPath();
+                        hiResCtx.arc(centerX + highlightWidth / 2, centerY + highlightHeight / 2, radius, 0, Math.PI * 2);
+                        hiResCtx.fill();
+                    } else if (state.highlightBgShape === 'rounded') {
+                        hiResCtx.beginPath();
+                        hiResCtx.roundRect(bgX, bgY, bgWidth, bgHeight, padding * 0.5);
+                        hiResCtx.fill();
+                    } else {
+                        hiResCtx.fillRect(bgX, bgY, bgWidth, bgHeight);
+                    }
+                }
+
+                hiResCtx.drawImage(state.logoImage, centerX, centerY, highlightWidth, highlightHeight);
+
+                let textY = centerY + highlightHeight + 45;
+                if (state.showHighlightText) {
+                    hiResCtx.font = `bold 36px ${state.highlightTextFont}`;
+                    hiResCtx.fillStyle = state.highlightTextColor;
+                    hiResCtx.textAlign = 'center';
+                    hiResCtx.fillText(state.highlightText, canvas.width / 2, textY);
+                    textY += 35;
+                }
+                if (state.showHighlightTagline) {
+                    hiResCtx.font = `18px ${state.highlightTaglineFont}`;
+                    hiResCtx.fillStyle = state.highlightTaglineColor;
+                    hiResCtx.textAlign = 'center';
+                    hiResCtx.fillText(state.highlightTagline, canvas.width / 2, textY);
+                }
+            } else {
+                // Grid, Diagonal, Offset patterns
+                hiResCtx.save();
+                hiResCtx.translate(canvas.width / 2 + offsetX, canvas.height / 2 + offsetY);
+                hiResCtx.rotate(rotation);
+                hiResCtx.translate(-canvas.width / 2, -canvas.height / 2);
+
+                if (state.patternStyle === 'diagonal') {
+                    hiResCtx.rotate(-Math.PI / 6);
+                    for (let py = -logoHeight * 3; py < canvas.height * 3; py += logoHeight + spacing) {
+                        for (let px = -logoWidth * 3; px < canvas.width * 3; px += logoWidth + spacing) {
+                            hiResCtx.drawImage(state.logoImage, px, py, logoWidth, logoHeight);
+                        }
+                    }
+                } else if (state.patternStyle === 'offset') {
+                    let rowIndex = 0;
+                    for (let py = -logoHeight * 2; py < canvas.height + logoHeight * 2; py += logoHeight + spacing) {
+                        const rowOffset = rowIndex % 2 === 0 ? 0 : (logoWidth + spacing) / 2;
+                        for (let px = -logoWidth * 2 + rowOffset; px < canvas.width + logoWidth * 2; px += logoWidth + spacing) {
+                            hiResCtx.drawImage(state.logoImage, px, py, logoWidth, logoHeight);
+                        }
+                        rowIndex++;
+                    }
+                } else {
+                    // Grid
+                    for (let py = -logoHeight * 2; py < canvas.height + logoHeight * 2; py += logoHeight + spacing) {
+                        for (let px = -logoWidth * 2; px < canvas.width + logoWidth * 2; px += logoWidth + spacing) {
+                            hiResCtx.drawImage(state.logoImage, px, py, logoWidth, logoHeight);
+                        }
+                    }
+                }
+                hiResCtx.restore();
+            }
         }
 
         // Reset scale for getting image data
