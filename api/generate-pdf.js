@@ -1,8 +1,9 @@
-// Vercel Serverless Function - Generate Print-Ready PDF
-// Creates CMYK PDF with bleeds at exact dimensions
+// Vercel Serverless Function - Generate Print-Ready CMYK PDF
+// Creates PDF with bleeds at exact dimensions for professional printing
+// Uses raw PDF commands to embed CMYK images properly
 
-const PDFDocument = require('pdfkit');
 const sharp = require('sharp');
+const zlib = require('zlib');
 
 module.exports = async function handler(req, res) {
     // CORS headers
@@ -63,114 +64,41 @@ module.exports = async function handler(req, res) {
         const pdfWidth = totalWidthInches * 72;
         const pdfHeight = totalHeightInches * 72;
 
-        console.log(`Generating PDF: ${widthInches}x${heightInches} inches + ${bleedInches}" bleed = ${totalWidthInches}x${totalHeightInches}" at ${targetDPI} DPI`);
+        console.log(`Generating CMYK PDF: ${widthInches}x${heightInches} inches + ${bleedInches}" bleed at ${targetDPI} DPI`);
 
         // Extract base64 data
         const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
         const imageBuffer = Buffer.from(base64Data, 'base64');
 
-        // Process image with Sharp
-        // Resize to exact pixel dimensions and convert to CMYK
-        const processedImage = await sharp(imageBuffer)
+        // Process image with Sharp - convert to CMYK raw pixels
+        const cmykImage = await sharp(imageBuffer)
             .resize(pixelWidth, pixelHeight, {
                 fit: 'cover',
-                position: 'center'
+                position: 'center',
+                kernel: 'lanczos3'
             })
-            .toColorspace('cmyk') // Convert to CMYK
-            .jpeg({
-                quality: 100,
-                chromaSubsampling: '4:4:4' // No chroma subsampling for print
-            })
-            .toBuffer();
+            .toColorspace('cmyk')
+            .raw()
+            .toBuffer({ resolveWithObject: true });
 
-        // Create PDF document with exact dimensions
-        const doc = new PDFDocument({
-            size: [pdfWidth, pdfHeight],
-            margin: 0,
-            info: {
-                Title: `${productName || 'PrintPilot Design'} - Print Ready`,
-                Author: 'PrintPilot',
-                Subject: 'Print-Ready CMYK PDF with Bleeds',
-                Keywords: 'print, cmyk, bleed',
-                Creator: 'PrintPilot Design Studio',
-                Producer: 'PDFKit'
-            }
+        const { data: cmykData, info } = cmykImage;
+
+        // Compress the CMYK data with zlib (FlateDecode)
+        const compressedData = zlib.deflateSync(cmykData);
+
+        // Build PDF manually with CMYK color space
+        const pdf = buildCMYKPdf({
+            cmykData: compressedData,
+            rawDataLength: cmykData.length,
+            pixelWidth: info.width,
+            pixelHeight: info.height,
+            pdfWidth,
+            pdfHeight,
+            bleedInches,
+            productName: productName || 'PrintPilot Design'
         });
 
-        // Collect PDF data
-        const chunks = [];
-        doc.on('data', chunk => chunks.push(chunk));
-
-        // Create promise for PDF completion
-        const pdfPromise = new Promise((resolve, reject) => {
-            doc.on('end', () => resolve(Buffer.concat(chunks)));
-            doc.on('error', reject);
-        });
-
-        // Add image to PDF (full page, including bleeds)
-        doc.image(processedImage, 0, 0, {
-            width: pdfWidth,
-            height: pdfHeight
-        });
-
-        // Add trim marks (crop marks) at corners
-        const trimOffset = bleedInches * 72; // Convert bleed to points
-        const markLength = 18; // 0.25 inch marks
-        const markOffset = 6; // Small gap from trim line
-
-        doc.strokeColor('#000000')
-           .lineWidth(0.5);
-
-        // Top-left corner marks
-        doc.moveTo(trimOffset - markOffset, 0)
-           .lineTo(trimOffset - markOffset, markLength)
-           .stroke();
-        doc.moveTo(0, trimOffset - markOffset)
-           .lineTo(markLength, trimOffset - markOffset)
-           .stroke();
-
-        // Top-right corner marks
-        doc.moveTo(pdfWidth - trimOffset + markOffset, 0)
-           .lineTo(pdfWidth - trimOffset + markOffset, markLength)
-           .stroke();
-        doc.moveTo(pdfWidth, trimOffset - markOffset)
-           .lineTo(pdfWidth - markLength, trimOffset - markOffset)
-           .stroke();
-
-        // Bottom-left corner marks
-        doc.moveTo(trimOffset - markOffset, pdfHeight)
-           .lineTo(trimOffset - markOffset, pdfHeight - markLength)
-           .stroke();
-        doc.moveTo(0, pdfHeight - trimOffset + markOffset)
-           .lineTo(markLength, pdfHeight - trimOffset + markOffset)
-           .stroke();
-
-        // Bottom-right corner marks
-        doc.moveTo(pdfWidth - trimOffset + markOffset, pdfHeight)
-           .lineTo(pdfWidth - trimOffset + markOffset, pdfHeight - markLength)
-           .stroke();
-        doc.moveTo(pdfWidth, pdfHeight - trimOffset + markOffset)
-           .lineTo(pdfWidth - markLength, pdfHeight - trimOffset + markOffset)
-           .stroke();
-
-        // Add color registration marks (small circles at corners)
-        const regMarkSize = 6;
-        const regMarkPos = trimOffset / 2;
-
-        // Registration marks with CMYK colors
-        [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]].forEach((color, i) => {
-            const offset = i * 3;
-            // Top-left
-            doc.circle(regMarkPos - offset, regMarkPos, regMarkSize / 4)
-               .fill('#000');
-        });
-
-        // Finalize PDF
-        doc.end();
-
-        // Wait for PDF to complete
-        const pdfBuffer = await pdfPromise;
-        const pdfBase64 = pdfBuffer.toString('base64');
+        const pdfBase64 = pdf.toString('base64');
 
         // Generate filename
         const filename = `PrintPilot_${(productName || 'Design').replace(/\s+/g, '_')}_${widthInches}x${heightInches}in_${targetDPI}dpi_CMYK_PRINT.pdf`;
@@ -185,7 +113,7 @@ module.exports = async function handler(req, res) {
                 bleed: `${bleedInches}" (${Math.round(bleedInches * 25.4)}mm)`,
                 dpi: targetDPI,
                 colorSpace: 'CMYK',
-                pixelDimensions: `${pixelWidth} x ${pixelHeight} px`
+                pixelDimensions: `${info.width} x ${info.height} px`
             }
         });
 
@@ -197,3 +125,138 @@ module.exports = async function handler(req, res) {
         });
     }
 };
+
+/**
+ * Build a PDF with CMYK image using raw PDF commands
+ */
+function buildCMYKPdf({ cmykData, rawDataLength, pixelWidth, pixelHeight, pdfWidth, pdfHeight, bleedInches, productName }) {
+    const trimOffset = bleedInches * 72;
+
+    // PDF objects
+    const objects = [];
+    let objectNum = 1;
+
+    // Object 1: Catalog
+    objects.push({
+        num: objectNum++,
+        content: `<< /Type /Catalog /Pages 2 0 R >>`
+    });
+
+    // Object 2: Pages
+    objects.push({
+        num: objectNum++,
+        content: `<< /Type /Pages /Kids [3 0 R] /Count 1 >>`
+    });
+
+    // Object 3: Page
+    objects.push({
+        num: objectNum++,
+        content: `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pdfWidth.toFixed(2)} ${pdfHeight.toFixed(2)}] /TrimBox [${trimOffset.toFixed(2)} ${trimOffset.toFixed(2)} ${(pdfWidth - trimOffset).toFixed(2)} ${(pdfHeight - trimOffset).toFixed(2)}] /BleedBox [0 0 ${pdfWidth.toFixed(2)} ${pdfHeight.toFixed(2)}] /Resources << /XObject << /Img 5 0 R >> >> /Contents 4 0 R >>`
+    });
+
+    // Object 4: Page content stream (draw image + crop marks)
+    const cropMarks = generateCropMarks(pdfWidth, pdfHeight, trimOffset);
+    const contentStream = `q ${pdfWidth.toFixed(2)} 0 0 ${pdfHeight.toFixed(2)} 0 0 cm /Img Do Q ${cropMarks}`;
+    const contentStreamCompressed = zlib.deflateSync(Buffer.from(contentStream));
+
+    objects.push({
+        num: objectNum++,
+        content: `<< /Length ${contentStreamCompressed.length} /Filter /FlateDecode >>`,
+        stream: contentStreamCompressed
+    });
+
+    // Object 5: CMYK Image XObject
+    objects.push({
+        num: objectNum++,
+        content: `<< /Type /XObject /Subtype /Image /Width ${pixelWidth} /Height ${pixelHeight} /ColorSpace /DeviceCMYK /BitsPerComponent 8 /Length ${cmykData.length} /Filter /FlateDecode /Decode [1 0 1 0 1 0 1 0] >>`,
+        stream: cmykData
+    });
+
+    // Object 6: Info dictionary
+    const now = new Date();
+    const dateStr = `D:${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+
+    objects.push({
+        num: objectNum++,
+        content: `<< /Title (${productName} - Print Ready CMYK) /Author (PrintPilot) /Subject (Print-Ready CMYK PDF with Bleeds) /Creator (PrintPilot Design Studio) /Producer (PrintPilot PDF Generator) /CreationDate (${dateStr}) >>`
+    });
+
+    // Build the PDF file
+    let pdf = '%PDF-1.4\n%\xFF\xFF\xFF\xFF\n';
+    const offsets = [];
+
+    for (const obj of objects) {
+        offsets.push(pdf.length);
+        pdf += `${obj.num} 0 obj\n${obj.content}\n`;
+        if (obj.stream) {
+            pdf += 'stream\n';
+            // Convert to buffer for binary stream
+            const pdfBefore = Buffer.from(pdf, 'binary');
+            const pdfAfter = Buffer.from('\nendstream\nendobj\n', 'binary');
+            pdf = Buffer.concat([pdfBefore, obj.stream, pdfAfter]);
+        } else {
+            pdf += 'endobj\n';
+        }
+    }
+
+    // Convert to buffer if still string
+    if (typeof pdf === 'string') {
+        pdf = Buffer.from(pdf, 'binary');
+    }
+
+    // XRef table
+    const xrefOffset = pdf.length;
+    let xref = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+    for (const offset of offsets) {
+        xref += `${String(offset).padStart(10, '0')} 00000 n \n`;
+    }
+
+    // Trailer
+    const trailer = `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R /Info 6 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+    return Buffer.concat([pdf, Buffer.from(xref + trailer)]);
+}
+
+/**
+ * Generate crop marks PDF commands
+ */
+function generateCropMarks(pdfWidth, pdfHeight, trimOffset) {
+    const markLength = 18;
+    const markGap = 6;
+
+    let marks = '0 0 0 1 K 0.5 w '; // CMYK Black, 0.5pt line width
+
+    // Top-left
+    marks += `${trimOffset - markGap} 0 m ${trimOffset - markGap} ${markLength} l S `;
+    marks += `0 ${trimOffset - markGap} m ${markLength} ${trimOffset - markGap} l S `;
+
+    // Top-right
+    marks += `${pdfWidth - trimOffset + markGap} 0 m ${pdfWidth - trimOffset + markGap} ${markLength} l S `;
+    marks += `${pdfWidth} ${trimOffset - markGap} m ${pdfWidth - markLength} ${trimOffset - markGap} l S `;
+
+    // Bottom-left
+    marks += `${trimOffset - markGap} ${pdfHeight} m ${trimOffset - markGap} ${pdfHeight - markLength} l S `;
+    marks += `0 ${pdfHeight - trimOffset + markGap} m ${markLength} ${pdfHeight - trimOffset + markGap} l S `;
+
+    // Bottom-right
+    marks += `${pdfWidth - trimOffset + markGap} ${pdfHeight} m ${pdfWidth - trimOffset + markGap} ${pdfHeight - markLength} l S `;
+    marks += `${pdfWidth} ${pdfHeight - trimOffset + markGap} m ${pdfWidth - markLength} ${pdfHeight - trimOffset + markGap} l S `;
+
+    // Registration mark (target) - top left corner in bleed area
+    const rx = trimOffset / 2;
+    const ry = pdfHeight - trimOffset / 2;
+
+    // Circle approximation with bezier curves
+    const r = 4;
+    const c = r * 0.552284749831; // Control point distance
+    marks += `${rx - r} ${ry} m ${rx - r} ${ry + c} ${rx - c} ${ry + r} ${rx} ${ry + r} c `;
+    marks += `${rx + c} ${ry + r} ${rx + r} ${ry + c} ${rx + r} ${ry} c `;
+    marks += `${rx + r} ${ry - c} ${rx + c} ${ry - r} ${rx} ${ry - r} c `;
+    marks += `${rx - c} ${ry - r} ${rx - r} ${ry - c} ${rx - r} ${ry} c S `;
+
+    // Crosshairs
+    marks += `${rx - 6} ${ry} m ${rx + 6} ${ry} l S `;
+    marks += `${rx} ${ry - 6} m ${rx} ${ry + 6} l S `;
+
+    return marks;
+}
