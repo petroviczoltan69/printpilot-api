@@ -644,37 +644,112 @@
                             <div class="control-section">
                                 <h4 class="control-title">
                                     <span class="control-number">4</span>
-                                    Text
+                                    Text Layers
                                 </h4>
-                                <div class="pattern-settings">
-                                    <div class="setting checkbox-setting">
-                                        <label><input type="checkbox" id="showPhotoText"> Add Text</label>
+                                <div id="textLayersContainer" class="pattern-settings">
+                                    <!-- Text Layer 1 -->
+                                    <div class="text-layer" data-layer="0">
+                                        <div class="setting checkbox-setting">
+                                            <label><input type="checkbox" class="text-layer-toggle" data-layer="0"> Text 1</label>
+                                        </div>
+                                        <div class="text-layer-settings sub-settings hidden" data-layer="0">
+                                            <div class="setting-inline">
+                                                <input type="text" class="text-layer-content" data-layer="0" placeholder="Enter text..." style="flex:1">
+                                                <input type="color" class="text-layer-color" data-layer="0" value="#000000" class="color-picker-small">
+                                            </div>
+                                            <div class="setting-inline">
+                                                <label>Size</label>
+                                                <input type="range" class="text-layer-size" data-layer="0" min="16" max="200" value="48">
+                                                <span class="text-layer-size-value" data-layer="0">48px</span>
+                                            </div>
+                                            <div class="setting-inline">
+                                                <select class="text-layer-font font-select" data-layer="0" style="flex:1">
+                                                    <option value="Impact">Impact</option>
+                                                    <option value="Arial Black">Arial Black</option>
+                                                    <option value="Georgia">Georgia</option>
+                                                    <option value="Helvetica">Helvetica</option>
+                                                </select>
+                                            </div>
+                                            <div class="setting-inline">
+                                                <label>Pos</label>
+                                                <div class="position-grid">
+                                                    <button class="position-btn text-pos-btn" data-layer="0" data-direction="up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg></button>
+                                                    <button class="position-btn text-pos-btn" data-layer="0" data-direction="down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+                                                    <button class="position-btn text-pos-btn" data-layer="0" data-direction="left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+                                                    <button class="position-btn text-pos-btn" data-layer="0" data-direction="right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+                                                    <button class="position-btn text-pos-btn" data-layer="0" data-direction="center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle></svg></button>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div id="photoTextSettings" class="sub-settings hidden">
-                                        <div class="setting-inline">
-                                            <input type="text" id="textContent" placeholder="Enter text..." style="flex:1">
-                                            <input type="color" id="textColor" value="#000000" class="color-picker-small">
+                                    <!-- Text Layer 2 -->
+                                    <div class="text-layer" data-layer="1">
+                                        <div class="setting checkbox-setting">
+                                            <label><input type="checkbox" class="text-layer-toggle" data-layer="1"> Text 2</label>
                                         </div>
-                                        <div class="setting-inline">
-                                            <label>Size</label>
-                                            <input type="range" id="fontSize" min="20" max="200" value="60">
-                                            <span id="fontSizeValue">60px</span>
+                                        <div class="text-layer-settings sub-settings hidden" data-layer="1">
+                                            <div class="setting-inline">
+                                                <input type="text" class="text-layer-content" data-layer="1" placeholder="Enter text..." style="flex:1">
+                                                <input type="color" class="text-layer-color" data-layer="1" value="#ffffff" class="color-picker-small">
+                                            </div>
+                                            <div class="setting-inline">
+                                                <label>Size</label>
+                                                <input type="range" class="text-layer-size" data-layer="1" min="16" max="200" value="32">
+                                                <span class="text-layer-size-value" data-layer="1">32px</span>
+                                            </div>
+                                            <div class="setting-inline">
+                                                <select class="text-layer-font font-select" data-layer="1" style="flex:1">
+                                                    <option value="Impact">Impact</option>
+                                                    <option value="Arial Black">Arial Black</option>
+                                                    <option value="Georgia">Georgia</option>
+                                                    <option value="Helvetica">Helvetica</option>
+                                                </select>
+                                            </div>
+                                            <div class="setting-inline">
+                                                <label>Pos</label>
+                                                <div class="position-grid">
+                                                    <button class="position-btn text-pos-btn" data-layer="1" data-direction="up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg></button>
+                                                    <button class="position-btn text-pos-btn" data-layer="1" data-direction="down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+                                                    <button class="position-btn text-pos-btn" data-layer="1" data-direction="left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+                                                    <button class="position-btn text-pos-btn" data-layer="1" data-direction="right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+                                                    <button class="position-btn text-pos-btn" data-layer="1" data-direction="center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle></svg></button>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div class="setting-inline">
-                                            <select id="fontFamily" class="font-select" style="flex:1">
-                                                <option value="Impact">Impact</option>
-                                                <option value="Arial Black">Arial Black</option>
-                                                <option value="Georgia">Georgia</option>
-                                                <option value="Helvetica">Helvetica</option>
-                                            </select>
+                                    </div>
+                                    <!-- Text Layer 3 -->
+                                    <div class="text-layer" data-layer="2">
+                                        <div class="setting checkbox-setting">
+                                            <label><input type="checkbox" class="text-layer-toggle" data-layer="2"> Text 3</label>
                                         </div>
-                                        <div class="setting-inline">
-                                            <label>Position</label>
-                                            <select id="photoTextPosition" class="font-select" style="flex:1">
-                                                <option value="top">Top</option>
-                                                <option value="center">Center</option>
-                                                <option value="bottom">Bottom</option>
-                                            </select>
+                                        <div class="text-layer-settings sub-settings hidden" data-layer="2">
+                                            <div class="setting-inline">
+                                                <input type="text" class="text-layer-content" data-layer="2" placeholder="Enter text..." style="flex:1">
+                                                <input type="color" class="text-layer-color" data-layer="2" value="#ffcc00" class="color-picker-small">
+                                            </div>
+                                            <div class="setting-inline">
+                                                <label>Size</label>
+                                                <input type="range" class="text-layer-size" data-layer="2" min="16" max="200" value="24">
+                                                <span class="text-layer-size-value" data-layer="2">24px</span>
+                                            </div>
+                                            <div class="setting-inline">
+                                                <select class="text-layer-font font-select" data-layer="2" style="flex:1">
+                                                    <option value="Impact">Impact</option>
+                                                    <option value="Arial Black">Arial Black</option>
+                                                    <option value="Georgia">Georgia</option>
+                                                    <option value="Helvetica">Helvetica</option>
+                                                </select>
+                                            </div>
+                                            <div class="setting-inline">
+                                                <label>Pos</label>
+                                                <div class="position-grid">
+                                                    <button class="position-btn text-pos-btn" data-layer="2" data-direction="up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg></button>
+                                                    <button class="position-btn text-pos-btn" data-layer="2" data-direction="down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+                                                    <button class="position-btn text-pos-btn" data-layer="2" data-direction="left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+                                                    <button class="position-btn text-pos-btn" data-layer="2" data-direction="right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+                                                    <button class="position-btn text-pos-btn" data-layer="2" data-direction="center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle></svg></button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
