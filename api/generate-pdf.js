@@ -25,9 +25,12 @@ module.exports = async function handler(req, res) {
         }
 
         const targetDPI = dpi || 150;
-        const bleedInches = 0.125; // 1/8 inch = 3.175mm standard bleed
-        const cropMarkLength = 0.25; // 1/4 inch crop mark length
-        const cropMarkOffset = 0.0625; // 1/16 inch gap between trim and crop mark
+
+        // Print-ready margins (in inches)
+        const bleedInches = 0.125;      // 1/8 inch = 3.175mm standard bleed
+        const markMarginInches = 0.25;  // Extra margin for crop marks (1/4 inch)
+        const cropMarkLength = 0.375;   // 3/8 inch crop mark length
+        const cropMarkGap = 0.0625;     // 1/16 inch gap from trim line
 
         // Parse dimensions - convert to inches
         let widthInches, heightInches;
@@ -50,22 +53,37 @@ module.exports = async function handler(req, res) {
         }
 
         // Calculate dimensions in points (72 points per inch)
-        const PPI = 72; // Points per inch
-        const bleedPoints = bleedInches * PPI;
+        const PPI = 72;
+        const bleedPts = bleedInches * PPI;
+        const markMarginPts = markMarginInches * PPI;
+        const cropMarkLengthPts = cropMarkLength * PPI;
+        const cropMarkGapPts = cropMarkGap * PPI;
+
+        // Trim size (final cut size)
         const trimWidth = widthInches * PPI;
         const trimHeight = heightInches * PPI;
-        const totalWidth = trimWidth + (bleedPoints * 2);
-        const totalHeight = trimHeight + (bleedPoints * 2);
-        const cropMarkLengthPts = cropMarkLength * PPI;
-        const cropMarkOffsetPts = cropMarkOffset * PPI;
 
-        console.log(`Generating PDF: ${widthInches}" x ${heightInches}" trim + ${bleedInches}" bleed = ${(widthInches + bleedInches * 2).toFixed(3)}" x ${(heightInches + bleedInches * 2).toFixed(3)}" total`);
+        // Bleed size (trim + bleed on all sides)
+        const bleedWidth = trimWidth + (bleedPts * 2);
+        const bleedHeight = trimHeight + (bleedPts * 2);
+
+        // Total page size (bleed + margin for marks)
+        const totalWidth = bleedWidth + (markMarginPts * 2);
+        const totalHeight = bleedHeight + (markMarginPts * 2);
+
+        // Offsets for positioning
+        const imageX = markMarginPts;  // Where bleed area starts
+        const imageY = markMarginPts;
+        const trimX = markMarginPts + bleedPts;  // Where trim area starts
+        const trimY = markMarginPts + bleedPts;
+
+        console.log(`Generating PDF: ${widthInches}" x ${heightInches}" trim, ${bleedInches}" bleed, ${markMarginInches}" mark margin`);
 
         // Extract image buffer from base64
         const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
         const imageBuffer = Buffer.from(base64Data, 'base64');
 
-        // Create PDF document with print-ready settings
+        // Create PDF document
         const doc = new PDFDocument({
             size: [totalWidth, totalHeight],
             margin: 0,
@@ -75,9 +93,9 @@ module.exports = async function handler(req, res) {
                 Title: `${productName || 'PrintPilot Design'} - Print Ready`,
                 Author: 'PrintPilot',
                 Subject: `Print-Ready PDF - ${widthInches}" x ${heightInches}" with ${bleedInches}" bleed`,
-                Keywords: 'print-ready, CMYK, bleed, trim marks',
+                Keywords: 'print-ready, CMYK, bleed, trim marks, crop marks',
                 Creator: 'PrintPilot Design Studio',
-                Producer: 'PrintPilot PDF Generator v2.0'
+                Producer: 'PrintPilot PDF Generator v2.1'
             }
         });
 
@@ -89,74 +107,83 @@ module.exports = async function handler(req, res) {
             doc.on('error', reject);
         });
 
-        // Add image stretched to full bleed size
-        doc.image(imageBuffer, 0, 0, {
-            width: totalWidth,
-            height: totalHeight,
-            cover: [totalWidth, totalHeight]
+        // Fill mark margin area with white
+        doc.rect(0, 0, totalWidth, totalHeight).fill('#FFFFFF');
+
+        // Add image in the bleed area (not in mark margin)
+        doc.image(imageBuffer, imageX, imageY, {
+            width: bleedWidth,
+            height: bleedHeight,
+            cover: [bleedWidth, bleedHeight]
         });
 
-        // ===== CROP MARKS (Industry Standard) =====
-        // Crop marks should be OUTSIDE the bleed area, in the trim zone
-        const trimLeft = bleedPoints;
-        const trimRight = totalWidth - bleedPoints;
-        const trimTop = bleedPoints;
-        const trimBottom = totalHeight - bleedPoints;
+        // ===== CROP MARKS =====
+        // These go in the white margin area, pointing to trim edges
+        doc.strokeColor('#000000').lineWidth(0.75);
 
-        doc.strokeColor('#000000').lineWidth(0.5);
+        // Trim box corners
+        const trimLeft = trimX;
+        const trimRight = trimX + trimWidth;
+        const trimTop = trimY;
+        const trimBottom = trimY + trimHeight;
 
-        // Top-left corner crop marks
-        doc.moveTo(trimLeft, trimTop - cropMarkOffsetPts)
-           .lineTo(trimLeft, trimTop - cropMarkOffsetPts - cropMarkLengthPts).stroke();
-        doc.moveTo(trimLeft - cropMarkOffsetPts, trimTop)
-           .lineTo(trimLeft - cropMarkOffsetPts - cropMarkLengthPts, trimTop).stroke();
+        // Top-left crop marks
+        doc.moveTo(trimLeft, trimTop - cropMarkGapPts)
+           .lineTo(trimLeft, trimTop - cropMarkGapPts - cropMarkLengthPts).stroke();
+        doc.moveTo(trimLeft - cropMarkGapPts, trimTop)
+           .lineTo(trimLeft - cropMarkGapPts - cropMarkLengthPts, trimTop).stroke();
 
-        // Top-right corner crop marks
-        doc.moveTo(trimRight, trimTop - cropMarkOffsetPts)
-           .lineTo(trimRight, trimTop - cropMarkOffsetPts - cropMarkLengthPts).stroke();
-        doc.moveTo(trimRight + cropMarkOffsetPts, trimTop)
-           .lineTo(trimRight + cropMarkOffsetPts + cropMarkLengthPts, trimTop).stroke();
+        // Top-right crop marks
+        doc.moveTo(trimRight, trimTop - cropMarkGapPts)
+           .lineTo(trimRight, trimTop - cropMarkGapPts - cropMarkLengthPts).stroke();
+        doc.moveTo(trimRight + cropMarkGapPts, trimTop)
+           .lineTo(trimRight + cropMarkGapPts + cropMarkLengthPts, trimTop).stroke();
 
-        // Bottom-left corner crop marks
-        doc.moveTo(trimLeft, trimBottom + cropMarkOffsetPts)
-           .lineTo(trimLeft, trimBottom + cropMarkOffsetPts + cropMarkLengthPts).stroke();
-        doc.moveTo(trimLeft - cropMarkOffsetPts, trimBottom)
-           .lineTo(trimLeft - cropMarkOffsetPts - cropMarkLengthPts, trimBottom).stroke();
+        // Bottom-left crop marks
+        doc.moveTo(trimLeft, trimBottom + cropMarkGapPts)
+           .lineTo(trimLeft, trimBottom + cropMarkGapPts + cropMarkLengthPts).stroke();
+        doc.moveTo(trimLeft - cropMarkGapPts, trimBottom)
+           .lineTo(trimLeft - cropMarkGapPts - cropMarkLengthPts, trimBottom).stroke();
 
-        // Bottom-right corner crop marks
-        doc.moveTo(trimRight, trimBottom + cropMarkOffsetPts)
-           .lineTo(trimRight, trimBottom + cropMarkOffsetPts + cropMarkLengthPts).stroke();
-        doc.moveTo(trimRight + cropMarkOffsetPts, trimBottom)
-           .lineTo(trimRight + cropMarkOffsetPts + cropMarkLengthPts, trimBottom).stroke();
+        // Bottom-right crop marks
+        doc.moveTo(trimRight, trimBottom + cropMarkGapPts)
+           .lineTo(trimRight, trimBottom + cropMarkGapPts + cropMarkLengthPts).stroke();
+        doc.moveTo(trimRight + cropMarkGapPts, trimBottom)
+           .lineTo(trimRight + cropMarkGapPts + cropMarkLengthPts, trimBottom).stroke();
 
-        // ===== REGISTRATION MARKS =====
-        const regOffset = bleedPoints / 2;
+        // ===== REGISTRATION MARKS (in corners of mark margin) =====
+        const regOffset = markMarginPts / 2;
         drawRegistrationMark(doc, regOffset, regOffset);
         drawRegistrationMark(doc, totalWidth - regOffset, regOffset);
         drawRegistrationMark(doc, regOffset, totalHeight - regOffset);
         drawRegistrationMark(doc, totalWidth - regOffset, totalHeight - regOffset);
 
-        // ===== COLOR BARS (CMYK) =====
-        const barWidth = 12;
-        const barHeight = 8;
-        const barY = 3;
-        const barStartX = bleedPoints + 30;
+        // ===== COLOR BARS (CMYK) in top margin =====
+        const barWidth = 14;
+        const barHeight = 10;
+        const barY = markMarginPts / 2 - barHeight / 2;
+        const barStartX = trimLeft + 40;
 
-        // CMYK color bars for printer calibration
         doc.rect(barStartX, barY, barWidth, barHeight).fill('#00FFFF');      // Cyan
-        doc.rect(barStartX + 14, barY, barWidth, barHeight).fill('#FF00FF'); // Magenta
-        doc.rect(barStartX + 28, barY, barWidth, barHeight).fill('#FFFF00'); // Yellow
-        doc.rect(barStartX + 42, barY, barWidth, barHeight).fill('#000000'); // Black (Key)
+        doc.rect(barStartX + 16, barY, barWidth, barHeight).fill('#FF00FF'); // Magenta
+        doc.rect(barStartX + 32, barY, barWidth, barHeight).fill('#FFFF00'); // Yellow
+        doc.rect(barStartX + 48, barY, barWidth, barHeight).fill('#000000'); // Black
 
         // Grayscale bar
-        doc.rect(barStartX + 60, barY, barWidth/2, barHeight).fill('#FFFFFF');
-        doc.rect(barStartX + 66, barY, barWidth/2, barHeight).fill('#808080');
-        doc.rect(barStartX + 72, barY, barWidth/2, barHeight).fill('#000000');
+        doc.rect(barStartX + 70, barY, barWidth/2, barHeight).fill('#FFFFFF').stroke('#000000');
+        doc.rect(barStartX + 77, barY, barWidth/2, barHeight).fill('#808080');
+        doc.rect(barStartX + 84, barY, barWidth/2, barHeight).fill('#000000');
 
         // ===== JOB INFO LABEL =====
-        doc.fontSize(6).fillColor('#000000');
-        const infoText = `${productName || 'PrintPilot'} | Trim: ${widthInches}" x ${heightInches}" | Bleed: ${bleedInches}" | ${targetDPI} DPI`;
-        doc.text(infoText, bleedPoints + 120, 4, { width: 300 });
+        doc.fontSize(7).fillColor('#000000');
+        const infoText = `${productName || 'PrintPilot'} | Trim: ${widthInches}" x ${heightInches}" | Bleed: ${bleedInches}" | ${targetDPI} DPI | CMYK Ready`;
+        doc.text(infoText, barStartX + 110, barY + 1, { width: 400 });
+
+        // ===== BLEED INDICATOR LINES (optional - shows bleed boundary) =====
+        doc.strokeColor('#FF0000').lineWidth(0.25).opacity(0.3);
+        // Bleed box outline (dashed)
+        doc.rect(imageX, imageY, bleedWidth, bleedHeight).stroke();
+        doc.opacity(1);
 
         doc.end();
 
@@ -164,12 +191,11 @@ module.exports = async function handler(req, res) {
 
         // Add TrimBox, BleedBox, and PDF/X Output Intent
         pdfBuffer = addPrintReadyMetadata(pdfBuffer, {
-            trimBox: [bleedPoints, bleedPoints, trimWidth + bleedPoints, trimHeight + bleedPoints],
-            bleedBox: [0, 0, totalWidth, totalHeight],
+            // PDF boxes use coordinates from bottom-left origin
             mediaBox: [0, 0, totalWidth, totalHeight],
-            widthInches,
-            heightInches,
-            bleedInches
+            bleedBox: [imageX, imageY, imageX + bleedWidth, imageY + bleedHeight],
+            trimBox: [trimX, trimY, trimX + trimWidth, trimY + trimHeight],
+            artBox: [trimX, trimY, trimX + trimWidth, trimY + trimHeight]
         });
 
         const pdfBase64 = pdfBuffer.toString('base64');
@@ -181,11 +207,12 @@ module.exports = async function handler(req, res) {
             filename: filename,
             specs: {
                 trimSize: `${widthInches}" x ${heightInches}"`,
-                totalSize: `${(widthInches + bleedInches * 2).toFixed(3)}" x ${(heightInches + bleedInches * 2).toFixed(3)}"`,
+                bleedSize: `${(widthInches + bleedInches * 2).toFixed(3)}" x ${(heightInches + bleedInches * 2).toFixed(3)}"`,
+                totalSize: `${(widthInches + bleedInches * 2 + markMarginInches * 2).toFixed(3)}" x ${(heightInches + bleedInches * 2 + markMarginInches * 2).toFixed(3)}"`,
                 bleed: `${bleedInches}" (${(bleedInches * 25.4).toFixed(1)}mm)`,
                 dpi: targetDPI,
                 colorSpace: 'CMYK-Ready (PDF/X-4 Output Intent)',
-                features: ['TrimBox', 'BleedBox', 'Crop Marks', 'Registration Marks', 'Color Bars']
+                features: ['TrimBox', 'BleedBox', 'Crop Marks', 'Registration Marks', 'Color Bars', 'Bleed Guides']
             }
         });
 
@@ -201,24 +228,24 @@ module.exports = async function handler(req, res) {
 // Draw registration mark (target symbol for alignment)
 function drawRegistrationMark(doc, x, y) {
     doc.save();
-    doc.strokeColor('#000000').lineWidth(0.25);
+    doc.strokeColor('#000000').lineWidth(0.5);
 
     // Outer circle
-    doc.circle(x, y, 5).stroke();
+    doc.circle(x, y, 6).stroke();
     // Inner circle
-    doc.circle(x, y, 2).stroke();
+    doc.circle(x, y, 2.5).stroke();
     // Crosshairs
-    doc.moveTo(x - 7, y).lineTo(x + 7, y).stroke();
-    doc.moveTo(x, y - 7).lineTo(x, y + 7).stroke();
+    doc.moveTo(x - 9, y).lineTo(x + 9, y).stroke();
+    doc.moveTo(x, y - 9).lineTo(x, y + 9).stroke();
 
     doc.restore();
 }
 
 // Add TrimBox, BleedBox, and PDF/X-4 Output Intent to PDF
-function addPrintReadyMetadata(pdfBuffer, options) {
+function addPrintReadyMetadata(pdfBuffer, boxes) {
     let pdfString = pdfBuffer.toString('binary');
 
-    const { trimBox, bleedBox, mediaBox } = options;
+    const { mediaBox, bleedBox, trimBox, artBox } = boxes;
 
     // Find the page object and add boxes
     const pagePattern = /(\/Type\s*\/Page\b)([^>]*?)(>>)/;
@@ -227,16 +254,14 @@ function addPrintReadyMetadata(pdfBuffer, options) {
     if (match) {
         const trimBoxStr = `/TrimBox [${trimBox.map(n => n.toFixed(4)).join(' ')}]`;
         const bleedBoxStr = `/BleedBox [${bleedBox.map(n => n.toFixed(4)).join(' ')}]`;
-        const artBoxStr = `/ArtBox [${trimBox.map(n => n.toFixed(4)).join(' ')}]`;
+        const artBoxStr = `/ArtBox [${artBox.map(n => n.toFixed(4)).join(' ')}]`;
 
-        // Insert boxes before the closing >>
         const boxesStr = ` ${trimBoxStr} ${bleedBoxStr} ${artBoxStr}`;
         const replacement = match[1] + match[2] + boxesStr + match[3];
         pdfString = pdfString.replace(pagePattern, replacement);
     }
 
     // Add Output Intent for PDF/X-4 (CMYK)
-    // This tells the printer the document is intended for CMYK output
     const outputIntentObj = `
 /OutputIntents [<<
 /Type /OutputIntent
@@ -254,9 +279,6 @@ function addPrintReadyMetadata(pdfBuffer, options) {
         const replacement = catalogMatch[1] + catalogMatch[2] + outputIntentObj + catalogMatch[3];
         pdfString = pdfString.replace(catalogPattern, replacement);
     }
-
-    // Add XMP metadata for PDF/X-4 compliance indicator
-    // This helps print shops identify the file as print-ready
 
     return Buffer.from(pdfString, 'binary');
 }
