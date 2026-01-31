@@ -191,7 +191,7 @@ let state = {
     currentStep: 1,
     selectedSize: null,
     selectedOptions: [],
-    designType: null, // 'photo' or 'logo'
+    designType: null,
     uploadedImage: null,
     originalImageData: null,
     backgroundImage: null,
@@ -208,7 +208,9 @@ let state = {
 let canvas, ctx, finalCanvas, finalCtx;
 
 // ========== Initialize ==========
-window.onload = function() {
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('PrintPilot initialized');
+
     // Initialize canvases
     canvas = document.getElementById('previewCanvas');
     if (canvas) {
@@ -232,7 +234,7 @@ window.onload = function() {
 
     // Initial canvas draw
     if (ctx) updateCanvas();
-};
+});
 
 // ========== Event Listeners ==========
 function initEventListeners() {
@@ -252,20 +254,39 @@ function initEventListeners() {
         backBtn.addEventListener('click', backToProducts);
     }
 
-    // Wizard navigation
-    const step1Next = document.getElementById('step1Next');
-    const step2Back = document.getElementById('step2Back');
-    const step2Next = document.getElementById('step2Next');
-    const step3Back = document.getElementById('step3Back');
-    const step3Next = document.getElementById('step3Next');
-    const step4Back = document.getElementById('step4Back');
+    // Wizard navigation - FIX: Direct click handlers
+    document.getElementById('step1Next')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        console.log('Step 1 Next clicked');
+        goToStep(2);
+    });
 
-    if (step1Next) step1Next.addEventListener('click', () => goToStep(2));
-    if (step2Back) step2Back.addEventListener('click', () => goToStep(1));
-    if (step2Next) step2Next.addEventListener('click', () => goToStep(3));
-    if (step3Back) step3Back.addEventListener('click', () => goToStep(2));
-    if (step3Next) step3Next.addEventListener('click', () => goToStep(4));
-    if (step4Back) step4Back.addEventListener('click', () => goToStep(3));
+    document.getElementById('step2Back')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        goToStep(1);
+    });
+
+    document.getElementById('step2Next')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (!this.disabled) {
+            goToStep(3);
+        }
+    });
+
+    document.getElementById('step3Back')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        goToStep(2);
+    });
+
+    document.getElementById('step3Next')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        goToStep(4);
+    });
+
+    document.getElementById('step4Back')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        goToStep(3);
+    });
 
     // Design type selection
     document.querySelectorAll('.design-type-card:not(.disabled)').forEach(card => {
@@ -279,20 +300,17 @@ function initEventListeners() {
     initLogoControls();
 
     // Cart
-    const cartBtn = document.getElementById('cartBtn');
-    const closeCart = document.getElementById('closeCart');
-    const addToCart = document.getElementById('addToCart');
-    const modalBackdrop = document.querySelector('.modal-backdrop');
+    document.getElementById('cartBtn')?.addEventListener('click', openCart);
+    document.getElementById('closeCart')?.addEventListener('click', closeCartModal);
+    document.getElementById('addToCart')?.addEventListener('click', handleAddToCart);
+    document.querySelector('.modal-backdrop')?.addEventListener('click', closeCartModal);
 
-    if (cartBtn) cartBtn.addEventListener('click', openCart);
-    if (closeCart) closeCart.addEventListener('click', closeCartModal);
-    if (addToCart) addToCart.addEventListener('click', handleAddToCart);
-    if (modalBackdrop) modalBackdrop.addEventListener('click', closeCartModal);
+    // PDF Download
+    document.getElementById('downloadPDF')?.addEventListener('click', downloadPDF);
 }
 
 // ========== Photo Mode Controls ==========
 function initPhotoControls() {
-    // Upload zone click
     const uploadZone = document.getElementById('uploadZone');
     const imageUpload = document.getElementById('imageUpload');
 
@@ -316,67 +334,41 @@ function initPhotoControls() {
         imageUpload.addEventListener('change', handleImageUpload);
     }
 
-    // Remove image
-    const removeImage = document.getElementById('removeImage');
-    if (removeImage) {
-        removeImage.addEventListener('click', () => {
-            state.uploadedImage = null;
-            state.originalImageData = null;
-            document.getElementById('uploadedImage').classList.add('hidden');
-            document.getElementById('uploadZone').classList.remove('hidden');
-            document.getElementById('removeBackground').classList.add('hidden');
-            updateCanvas();
-        });
-    }
+    document.getElementById('removeImage')?.addEventListener('click', () => {
+        state.uploadedImage = null;
+        state.originalImageData = null;
+        document.getElementById('uploadedImage')?.classList.add('hidden');
+        document.getElementById('uploadZone')?.classList.remove('hidden');
+        document.getElementById('removeBackground')?.classList.add('hidden');
+        updateCanvas();
+    });
 
-    // Remove background button
-    const removeBackgroundBtn = document.getElementById('removeBackground');
-    if (removeBackgroundBtn) {
-        removeBackgroundBtn.addEventListener('click', removeBackground);
-    }
+    document.getElementById('removeBackground')?.addEventListener('click', removeBackground);
 
-    // Background type buttons
     document.querySelectorAll('.bg-type-btn').forEach(btn => {
         btn.addEventListener('click', handleBackgroundTypeChange);
     });
 
-    // Color inputs
-    const bgColor = document.getElementById('bgColor');
-    const gradColor1 = document.getElementById('gradColor1');
-    const gradColor2 = document.getElementById('gradColor2');
+    document.getElementById('bgColor')?.addEventListener('input', updateCanvas);
+    document.getElementById('gradColor1')?.addEventListener('input', updateCanvas);
+    document.getElementById('gradColor2')?.addEventListener('input', updateCanvas);
+    document.getElementById('generateBackground')?.addEventListener('click', generateAIBackground);
 
-    if (bgColor) bgColor.addEventListener('input', updateCanvas);
-    if (gradColor1) gradColor1.addEventListener('input', updateCanvas);
-    if (gradColor2) gradColor2.addEventListener('input', updateCanvas);
-
-    // AI background generation
-    const generateBackground = document.getElementById('generateBackground');
-    if (generateBackground) {
-        generateBackground.addEventListener('click', generateAIBackground);
-    }
-
-    // Text controls
     const fontSize = document.getElementById('fontSize');
-    const textColor = document.getElementById('textColor');
-    const fontFamily = document.getElementById('fontFamily');
-    const textContent = document.getElementById('textContent');
-    const addText = document.getElementById('addText');
-
     if (fontSize) {
         fontSize.addEventListener('input', function() {
             document.getElementById('fontSizeValue').textContent = this.value + 'px';
             updateCanvas();
         });
     }
-    if (textColor) textColor.addEventListener('input', updateCanvas);
-    if (fontFamily) fontFamily.addEventListener('change', updateCanvas);
-    if (textContent) textContent.addEventListener('input', updateCanvas);
-    if (addText) addText.addEventListener('click', addTextLayer);
+    document.getElementById('textColor')?.addEventListener('input', updateCanvas);
+    document.getElementById('fontFamily')?.addEventListener('change', updateCanvas);
+    document.getElementById('textContent')?.addEventListener('input', updateCanvas);
+    document.getElementById('addText')?.addEventListener('click', addTextLayer);
 }
 
 // ========== Logo Mode Controls ==========
 function initLogoControls() {
-    // Logo upload zone
     const logoUploadZone = document.getElementById('logoUploadZone');
     const logoUpload = document.getElementById('logoUpload');
 
@@ -400,23 +392,17 @@ function initLogoControls() {
         logoUpload.addEventListener('change', handleLogoUpload);
     }
 
-    // Remove logo
-    const removeLogo = document.getElementById('removeLogo');
-    if (removeLogo) {
-        removeLogo.addEventListener('click', () => {
-            state.logoImage = null;
-            document.getElementById('uploadedLogo').classList.add('hidden');
-            document.getElementById('logoUploadZone').classList.remove('hidden');
-            updateCanvas();
-        });
-    }
+    document.getElementById('removeLogo')?.addEventListener('click', () => {
+        state.logoImage = null;
+        document.getElementById('uploadedLogo')?.classList.add('hidden');
+        document.getElementById('logoUploadZone')?.classList.remove('hidden');
+        updateCanvas();
+    });
 
-    // Pattern style buttons
     document.querySelectorAll('.pattern-btn').forEach(btn => {
         btn.addEventListener('click', handlePatternStyleChange);
     });
 
-    // Pattern settings
     const logoSize = document.getElementById('logoSize');
     const patternSpacing = document.getElementById('patternSpacing');
     const patternBgColor = document.getElementById('patternBgColor');
@@ -447,13 +433,11 @@ function initLogoControls() {
 function handleCategoryFilter(e) {
     const category = e.target.dataset.category;
 
-    // Update active tab
     document.querySelectorAll('.category-tab').forEach(tab => {
         tab.classList.remove('active');
     });
     e.target.classList.add('active');
 
-    // Filter products
     document.querySelectorAll('.product-card').forEach(card => {
         if (category === 'all' || card.dataset.category === category) {
             card.style.display = 'block';
@@ -471,6 +455,9 @@ function handleProductSelect(e) {
 
     if (!product) return;
 
+    // Reset design state for new product
+    resetDesignState();
+
     state.currentProduct = { id: productId, ...product };
     state.selectedSize = product.sizes[0];
     state.selectedOptions = product.options.filter(o => o.default).map(o => o.id);
@@ -479,11 +466,11 @@ function handleProductSelect(e) {
     // Show design studio
     document.getElementById('designStudio').classList.remove('hidden');
     document.getElementById('products').classList.add('hidden');
-    document.querySelector('.hero').classList.add('hidden');
-    document.querySelector('.how-it-works').classList.add('hidden');
-    document.querySelector('.features-section').classList.add('hidden');
+    document.querySelector('.hero')?.classList.add('hidden');
+    document.querySelector('.how-it-works')?.classList.add('hidden');
+    document.querySelector('.features-section')?.classList.add('hidden');
 
-    // Populate size options
+    // Populate options
     populateSizeOptions();
     populateAdditionalOptions();
     updatePriceSummary();
@@ -491,27 +478,91 @@ function handleProductSelect(e) {
     // Reset wizard to step 1
     goToStep(1);
 
-    // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ========== Reset Design State ==========
+function resetDesignState() {
+    state.designType = null;
+    state.uploadedImage = null;
+    state.originalImageData = null;
+    state.backgroundImage = null;
+    state.backgroundType = 'solid';
+    state.textElements = [];
+    state.logoImage = null;
+    state.patternStyle = 'grid';
+    state.logoSize = 150;
+    state.patternSpacing = 20;
+    state.patternBgColor = '#ffffff';
+
+    // Reset UI elements
+    document.getElementById('uploadedImage')?.classList.add('hidden');
+    document.getElementById('uploadZone')?.classList.remove('hidden');
+    document.getElementById('removeBackground')?.classList.add('hidden');
+    document.getElementById('uploadedLogo')?.classList.add('hidden');
+    document.getElementById('logoUploadZone')?.classList.remove('hidden');
+
+    // Reset design type selection
+    document.querySelectorAll('.design-type-card').forEach(c => {
+        c.classList.remove('selected');
+    });
+
+    // Disable step 2 next button
+    const step2Next = document.getElementById('step2Next');
+    if (step2Next) step2Next.disabled = true;
+
+    // Reset background type buttons
+    document.querySelectorAll('.bg-type-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.bg === 'solid') btn.classList.add('active');
+    });
+
+    document.getElementById('solidBgOptions')?.classList.remove('hidden');
+    document.getElementById('gradientBgOptions')?.classList.add('hidden');
+    document.getElementById('aiBgOptions')?.classList.add('hidden');
+
+    // Reset color pickers
+    const bgColor = document.getElementById('bgColor');
+    if (bgColor) bgColor.value = '#ffffff';
+
+    // Reset pattern buttons
+    document.querySelectorAll('.pattern-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.pattern === 'grid') btn.classList.add('active');
+    });
+
+    // Reset sliders
+    const logoSizeEl = document.getElementById('logoSize');
+    const spacingEl = document.getElementById('patternSpacing');
+    const patternBgEl = document.getElementById('patternBgColor');
+
+    if (logoSizeEl) {
+        logoSizeEl.value = 150;
+        document.getElementById('logoSizeValue').textContent = '150px';
+    }
+    if (spacingEl) {
+        spacingEl.value = 20;
+        document.getElementById('spacingValue').textContent = '20px';
+    }
+    if (patternBgEl) patternBgEl.value = '#ffffff';
+
+    // Clear text input
+    const textContent = document.getElementById('textContent');
+    if (textContent) textContent.value = '';
 }
 
 // ========== Back to Products ==========
 function backToProducts() {
     document.getElementById('designStudio').classList.add('hidden');
     document.getElementById('products').classList.remove('hidden');
-    document.querySelector('.hero').classList.remove('hidden');
-    document.querySelector('.how-it-works').classList.remove('hidden');
-    document.querySelector('.features-section').classList.remove('hidden');
+    document.querySelector('.hero')?.classList.remove('hidden');
+    document.querySelector('.how-it-works')?.classList.remove('hidden');
+    document.querySelector('.features-section')?.classList.remove('hidden');
 
-    // Reset state
     state.currentProduct = null;
     state.selectedSize = null;
     state.selectedOptions = [];
-    state.designType = null;
-    state.uploadedImage = null;
-    state.backgroundImage = null;
-    state.textElements = [];
-    state.logoImage = null;
+    resetDesignState();
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -529,7 +580,6 @@ function populateSizeOptions() {
         </label>
     `).join('');
 
-    // Add event listeners
     container.querySelectorAll('input[name="size"]').forEach(input => {
         input.addEventListener('change', (e) => {
             state.selectedSize = state.currentProduct.sizes[parseInt(e.target.value)];
@@ -558,7 +608,6 @@ function populateAdditionalOptions() {
         </label>
     `).join('');
 
-    // Add event listeners
     container.querySelectorAll('input[type="checkbox"]').forEach(input => {
         input.addEventListener('change', (e) => {
             const optionId = e.target.value;
@@ -599,9 +648,10 @@ function updatePriceSummary() {
 
 // ========== Wizard Navigation ==========
 function goToStep(step) {
+    console.log('Going to step:', step);
     state.currentStep = step;
 
-    // Update wizard steps
+    // Update wizard step indicators
     document.querySelectorAll('.wizard-step').forEach(el => {
         const stepNum = parseInt(el.dataset.step);
         el.classList.remove('active', 'completed');
@@ -613,7 +663,11 @@ function goToStep(step) {
     document.querySelectorAll('.wizard-content').forEach(el => {
         el.classList.remove('active');
     });
-    document.getElementById(`step${step}`).classList.add('active');
+
+    const stepContent = document.getElementById(`step${step}`);
+    if (stepContent) {
+        stepContent.classList.add('active');
+    }
 
     // Step-specific actions
     if (step === 3) {
@@ -626,6 +680,12 @@ function goToStep(step) {
         updateReviewPanel();
         copyToFinalCanvas();
     }
+
+    // Scroll to top of studio
+    const studio = document.getElementById('designStudio');
+    if (studio) {
+        studio.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 }
 
 // ========== Design Type Selection ==========
@@ -635,13 +695,11 @@ function handleDesignTypeSelect(e) {
 
     state.designType = card.dataset.type;
 
-    // Update UI
     document.querySelectorAll('.design-type-card').forEach(c => {
         c.classList.remove('selected');
     });
     card.classList.add('selected');
 
-    // Enable next button
     const nextBtn = document.getElementById('step2Next');
     if (nextBtn) nextBtn.disabled = false;
 }
@@ -652,11 +710,11 @@ function showDesignControls() {
     const logoControls = document.getElementById('logoControls');
 
     if (state.designType === 'photo') {
-        if (photoControls) photoControls.classList.remove('hidden');
-        if (logoControls) logoControls.classList.add('hidden');
+        photoControls?.classList.remove('hidden');
+        logoControls?.classList.add('hidden');
     } else if (state.designType === 'logo') {
-        if (photoControls) photoControls.classList.add('hidden');
-        if (logoControls) logoControls.classList.remove('hidden');
+        photoControls?.classList.add('hidden');
+        logoControls?.classList.remove('hidden');
     }
 }
 
@@ -676,7 +734,6 @@ function updateCanvasSize() {
         finalCanvas.height = baseHeight;
     }
 
-    // Update preview size label
     const previewSize = document.getElementById('previewSize');
     if (previewSize) {
         previewSize.textContent = state.selectedSize.label;
@@ -700,7 +757,6 @@ function handleImageUpload(e) {
             state.uploadedImage = img;
             state.originalImageData = event.target.result;
 
-            // Show preview
             const preview = document.getElementById('imagePreview');
             const uploadedContainer = document.getElementById('uploadedImage');
             const uploadZone = document.getElementById('uploadZone');
@@ -735,7 +791,6 @@ function handleLogoUpload(e) {
         img.onload = function() {
             state.logoImage = img;
 
-            // Show preview
             const preview = document.getElementById('logoPreview');
             const uploadedContainer = document.getElementById('uploadedLogo');
             const uploadZone = document.getElementById('logoUploadZone');
@@ -799,21 +854,19 @@ function handleBackgroundTypeChange(e) {
 
     state.backgroundType = btn.dataset.bg;
 
-    // Update UI
     document.querySelectorAll('.bg-type-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 
-    // Show/hide options
-    document.getElementById('solidBgOptions').classList.add('hidden');
-    document.getElementById('gradientBgOptions').classList.add('hidden');
-    document.getElementById('aiBgOptions').classList.add('hidden');
+    document.getElementById('solidBgOptions')?.classList.add('hidden');
+    document.getElementById('gradientBgOptions')?.classList.add('hidden');
+    document.getElementById('aiBgOptions')?.classList.add('hidden');
 
     if (state.backgroundType === 'solid') {
-        document.getElementById('solidBgOptions').classList.remove('hidden');
+        document.getElementById('solidBgOptions')?.classList.remove('hidden');
     } else if (state.backgroundType === 'gradient') {
-        document.getElementById('gradientBgOptions').classList.remove('hidden');
+        document.getElementById('gradientBgOptions')?.classList.remove('hidden');
     } else if (state.backgroundType === 'ai') {
-        document.getElementById('aiBgOptions').classList.remove('hidden');
+        document.getElementById('aiBgOptions')?.classList.remove('hidden');
     }
 
     updateCanvas();
@@ -821,7 +874,7 @@ function handleBackgroundTypeChange(e) {
 
 // ========== AI Background Generation ==========
 async function generateAIBackground() {
-    const prompt = document.getElementById('aiPrompt').value.trim();
+    const prompt = document.getElementById('aiPrompt')?.value.trim();
 
     if (!prompt) {
         alert('Please describe the background you want to generate');
@@ -892,7 +945,7 @@ function handlePatternStyleChange(e) {
 // ========== Text Layer ==========
 function addTextLayer() {
     const textInput = document.getElementById('textContent');
-    const text = textInput.value.trim();
+    const text = textInput?.value.trim();
 
     if (!text) return;
 
@@ -900,9 +953,9 @@ function addTextLayer() {
         text: text,
         x: canvas.width / 2,
         y: canvas.height - 80,
-        fontSize: parseInt(document.getElementById('fontSize').value),
-        color: document.getElementById('textColor').value,
-        fontFamily: document.getElementById('fontFamily').value
+        fontSize: parseInt(document.getElementById('fontSize')?.value || 60),
+        color: document.getElementById('textColor')?.value || '#000000',
+        fontFamily: document.getElementById('fontFamily')?.value || 'Impact'
     });
 
     textInput.value = '';
@@ -914,7 +967,6 @@ function addTextLayer() {
 function updateCanvas() {
     if (!ctx || !canvas) return;
 
-    // Clear canvas
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -927,7 +979,6 @@ function updateCanvas() {
 
 // ========== Draw Photo Mode ==========
 function drawPhotoMode() {
-    // Draw background
     if (state.backgroundType === 'solid') {
         const color = document.getElementById('bgColor')?.value || '#ffffff';
         ctx.fillStyle = color;
@@ -944,7 +995,6 @@ function drawPhotoMode() {
         ctx.drawImage(state.backgroundImage, 0, 0, canvas.width, canvas.height);
     }
 
-    // Draw uploaded image
     if (state.uploadedImage) {
         const maxWidth = canvas.width * 0.6;
         const maxHeight = canvas.height * 0.7;
@@ -955,20 +1005,17 @@ function drawPhotoMode() {
         const x = (canvas.width - width) / 2;
         const y = (canvas.height - height) / 2 - 20;
 
-        // Shadow
         ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
         ctx.shadowBlur = 20;
         ctx.shadowOffsetY = 10;
 
         ctx.drawImage(state.uploadedImage, x, y, width, height);
 
-        // Reset shadow
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
         ctx.shadowOffsetY = 0;
     }
 
-    // Draw text elements
     state.textElements.forEach(element => {
         ctx.font = `bold ${element.fontSize}px ${element.fontFamily}`;
         ctx.fillStyle = element.color;
@@ -986,7 +1033,6 @@ function drawPhotoMode() {
         ctx.shadowBlur = 0;
     });
 
-    // Draw preview text
     const currentText = document.getElementById('textContent')?.value.trim();
     if (currentText) {
         const fontSize = document.getElementById('fontSize')?.value || 60;
@@ -1004,7 +1050,6 @@ function drawPhotoMode() {
 
 // ========== Draw Logo Mode ==========
 function drawLogoMode() {
-    // Draw background
     ctx.fillStyle = state.patternBgColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -1015,14 +1060,12 @@ function drawLogoMode() {
     const spacing = state.patternSpacing;
 
     if (state.patternStyle === 'grid') {
-        // Regular grid
         for (let y = -logoHeight; y < canvas.height + logoHeight; y += logoHeight + spacing) {
             for (let x = -logoWidth; x < canvas.width + logoWidth; x += logoWidth + spacing) {
                 ctx.drawImage(state.logoImage, x, y, logoWidth, logoHeight);
             }
         }
     } else if (state.patternStyle === 'diagonal') {
-        // Diagonal pattern
         ctx.save();
         ctx.translate(canvas.width / 2, canvas.height / 2);
         ctx.rotate(-Math.PI / 6);
@@ -1035,7 +1078,6 @@ function drawLogoMode() {
         }
         ctx.restore();
     } else if (state.patternStyle === 'offset') {
-        // Step & repeat (offset rows)
         let rowIndex = 0;
         for (let y = -logoHeight; y < canvas.height + logoHeight; y += logoHeight + spacing) {
             const offset = rowIndex % 2 === 0 ? 0 : (logoWidth + spacing) / 2;
@@ -1093,14 +1135,12 @@ function handleAddToCart() {
         return;
     }
 
-    // Calculate total price
     let totalPrice = state.selectedSize.price;
     state.selectedOptions.forEach(optionId => {
         const option = state.currentProduct.options.find(o => o.id === optionId);
         if (option) totalPrice += option.price;
     });
 
-    // Capture design
     const designImage = canvas.toDataURL('image/png');
 
     const item = {
@@ -1121,20 +1161,75 @@ function handleAddToCart() {
     updateCartUI();
     showSuccess('Added to cart!');
 
-    // Go back to products
     setTimeout(() => {
         backToProducts();
     }, 1500);
 }
 
+// ========== Download PDF ==========
+function downloadPDF() {
+    if (!canvas || typeof window.jspdf === 'undefined') {
+        alert('PDF generation not available. Please try again.');
+        return;
+    }
+
+    showLoading(true);
+
+    try {
+        const { jsPDF } = window.jspdf;
+
+        // Get canvas dimensions
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+
+        // Calculate PDF size (in mm, at 150 DPI for print)
+        const dpi = 150;
+        const mmPerInch = 25.4;
+        const pdfWidth = (canvasWidth / dpi) * mmPerInch;
+        const pdfHeight = (canvasHeight / dpi) * mmPerInch;
+
+        // Create PDF with custom size
+        const pdf = new jsPDF({
+            orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
+            unit: 'mm',
+            format: [pdfWidth, pdfHeight]
+        });
+
+        // Get canvas as image
+        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+
+        // Add image to PDF
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+
+        // Add bleed marks info
+        pdf.setFontSize(8);
+        pdf.setTextColor(128, 128, 128);
+
+        // Generate filename
+        const productName = state.currentProduct?.name || 'design';
+        const size = state.selectedSize?.label || '';
+        const filename = `PrintPilot_${productName.replace(/\s+/g, '_')}_${size.replace(/\s+/g, '_')}_PRINT.pdf`;
+
+        // Save PDF
+        pdf.save(filename);
+
+        showSuccess('PDF downloaded! Ready for print.');
+    } catch (error) {
+        console.error('PDF generation error:', error);
+        alert('Error generating PDF. Please try again.');
+    } finally {
+        showLoading(false);
+    }
+}
+
 // ========== Cart Functions ==========
 function openCart() {
-    document.getElementById('cartModal').classList.remove('hidden');
+    document.getElementById('cartModal')?.classList.remove('hidden');
     renderCart();
 }
 
 function closeCartModal() {
-    document.getElementById('cartModal').classList.add('hidden');
+    document.getElementById('cartModal')?.classList.add('hidden');
 }
 
 function updateCartUI() {
