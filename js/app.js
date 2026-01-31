@@ -1176,8 +1176,9 @@ async function downloadPDF() {
     showLoading(true);
 
     try {
-        // Get canvas image data
-        const imageData = canvas.toDataURL('image/png', 1.0);
+        // Get canvas image data - use JPEG with compression to reduce size for API
+        // This keeps the file under Vercel's 4.5MB request limit
+        const imageData = canvas.toDataURL('image/jpeg', 0.9);
 
         // Parse size dimensions from label (e.g., "2ft x 4ft" or "24" x 36"")
         const sizeLabel = state.selectedSize.label;
