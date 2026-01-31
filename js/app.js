@@ -1164,16 +1164,34 @@ function showDesignControls() {
 function updateCanvasSize() {
     if (!canvas || !state.currentProduct || !state.selectedSize) return;
 
-    const ratio = state.currentProduct.canvasRatio || 2;
-    const baseHeight = 500;
-    const baseWidth = baseHeight * ratio;
+    // Use actual product dimensions for correct aspect ratio
+    const productWidth = state.selectedSize.width;
+    const productHeight = state.selectedSize.height;
 
-    canvas.width = baseWidth;
-    canvas.height = baseHeight;
+    // Calculate aspect ratio from actual dimensions
+    const aspectRatio = productWidth / productHeight;
+
+    // Base size for canvas (max dimension)
+    const maxDimension = 600;
+
+    let canvasWidth, canvasHeight;
+
+    if (aspectRatio >= 1) {
+        // Landscape or square
+        canvasWidth = maxDimension;
+        canvasHeight = maxDimension / aspectRatio;
+    } else {
+        // Portrait
+        canvasHeight = maxDimension;
+        canvasWidth = maxDimension * aspectRatio;
+    }
+
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
 
     if (finalCanvas) {
-        finalCanvas.width = baseWidth;
-        finalCanvas.height = baseHeight;
+        finalCanvas.width = canvasWidth;
+        finalCanvas.height = canvasHeight;
     }
 
     const previewSize = document.getElementById('previewSize');
@@ -2026,41 +2044,23 @@ async function downloadPDF() {
         // Get high-resolution image data - use PNG for better quality
         const imageData = hiResCanvas.toDataURL('image/png');
 
-        // Parse size dimensions from label (e.g., "2ft x 4ft" or "24" x 36"")
+        // Use product dimensions directly from state
         const sizeLabel = state.selectedSize.label;
-        let width, height, unit;
+        let width = state.selectedSize.width;
+        let height = state.selectedSize.height;
 
-        // Check for feet (ft)
-        const ftMatch = sizeLabel.match(/(\d+(?:\.\d+)?)\s*ft?\s*x\s*(\d+(?:\.\d+)?)\s*ft?/i);
-        // Check for inches (", in, inches)
-        const inMatch = sizeLabel.match(/(\d+(?:\.\d+)?)["\s]*(?:in|inches?)?\s*x\s*(\d+(?:\.\d+)?)["\s]*(?:in|inches?)?/i);
-
-        if (ftMatch) {
-            width = parseFloat(ftMatch[1]);
-            height = parseFloat(ftMatch[2]);
+        // Determine unit from label
+        let unit;
+        if (sizeLabel.includes('ft')) {
             unit = 'ft';
-        } else if (inMatch) {
-            width = parseFloat(inMatch[1]);
-            height = parseFloat(inMatch[2]);
+        } else if (sizeLabel.includes('"') || sizeLabel.includes('in')) {
             unit = 'in';
         } else {
-            // Fallback to product data
-            width = state.selectedSize.width;
-            height = state.selectedSize.height;
-            unit = width > 20 ? 'in' : 'ft'; // Guess based on size
+            // Guess based on numeric value - dimensions > 20 are likely inches
+            unit = (width > 20 || height > 20) ? 'in' : 'ft';
         }
 
-        // Match PDF orientation to canvas orientation
-        // Canvas ratio > 1 means landscape (width > height)
-        const canvasIsLandscape = canvas.width > canvas.height;
-        const dimsAreLandscape = width > height;
-
-        // Swap dimensions if orientations don't match
-        if (canvasIsLandscape !== dimsAreLandscape) {
-            [width, height] = [height, width];
-        }
-
-        console.log(`Generating PDF: ${width} x ${height} ${unit}`);
+        console.log(`Generating PDF: ${width} x ${height} ${unit} (canvas: ${canvas.width}x${canvas.height})`);
 
         // Call server API for CMYK PDF generation
         const response = await fetch(`${CONFIG.API_URL}/api/generate-pdf`, {
