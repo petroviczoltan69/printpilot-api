@@ -271,6 +271,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initial canvas draw
     if (ctx) updateCanvas();
+
+    // Bleed marks toggle
+    const showBleedMarks = document.getElementById('showBleedMarks');
+    const showSafeArea = document.getElementById('showSafeArea');
+    const bleedOverlay = document.getElementById('bleedOverlay');
+    const safeArea = document.getElementById('safeArea');
+
+    if (showBleedMarks) {
+        showBleedMarks.addEventListener('change', function() {
+            if (bleedOverlay) {
+                bleedOverlay.classList.toggle('active', this.checked);
+            }
+        });
+    }
+
+    if (showSafeArea) {
+        showSafeArea.addEventListener('change', function() {
+            if (safeArea) {
+                safeArea.style.display = this.checked ? 'block' : 'none';
+            }
+        });
+    }
 });
 
 // ========== Event Listeners ==========
