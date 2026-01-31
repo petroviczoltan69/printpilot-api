@@ -202,10 +202,13 @@ let state = {
     photoImageX: 0.5,
     photoImageY: 0.5,
     photoFitMode: 'cover',
-    showPhotoText: false,
-    photoText: '',
-    photoTextPosition: 'bottom',
     gradDirection: 'horizontal',
+    // Text layers (up to 3)
+    photoTextLayers: [
+        { enabled: false, text: '', x: 0.5, y: 0.2, size: 48, font: 'Impact', color: '#000000' },
+        { enabled: false, text: '', x: 0.5, y: 0.5, size: 32, font: 'Impact', color: '#ffffff' },
+        { enabled: false, text: '', x: 0.5, y: 0.85, size: 24, font: 'Impact', color: '#ffcc00' }
+    ],
     // Logo mode
     logoImage: null,
     patternStyle: 'diagonal',
@@ -451,34 +454,58 @@ function initPhotoControls() {
         btn.addEventListener('click', handlePhotoPositionChange);
     });
 
-    // Show/hide photo text
-    const showPhotoText = document.getElementById('showPhotoText');
-    if (showPhotoText) {
-        showPhotoText.addEventListener('change', function() {
-            state.showPhotoText = this.checked;
-            document.getElementById('photoTextSettings')?.classList.toggle('hidden', !this.checked);
+    // Text layer toggles
+    document.querySelectorAll('.text-layer-toggle').forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            const layer = parseInt(this.dataset.layer);
+            state.photoTextLayers[layer].enabled = this.checked;
+            const settings = document.querySelector(`.text-layer-settings[data-layer="${layer}"]`);
+            if (settings) settings.classList.toggle('hidden', !this.checked);
             updateCanvas();
         });
-    }
-
-    // Photo text position
-    document.getElementById('photoTextPosition')?.addEventListener('change', function() {
-        state.photoTextPosition = this.value;
-        updateCanvas();
     });
 
-    const fontSize = document.getElementById('fontSize');
-    if (fontSize) {
-        fontSize.addEventListener('input', function() {
-            document.getElementById('fontSizeValue').textContent = this.value + 'px';
+    // Text layer content
+    document.querySelectorAll('.text-layer-content').forEach(input => {
+        input.addEventListener('input', function() {
+            const layer = parseInt(this.dataset.layer);
+            state.photoTextLayers[layer].text = this.value;
             updateCanvas();
         });
-    }
-    document.getElementById('textColor')?.addEventListener('input', updateCanvas);
-    document.getElementById('fontFamily')?.addEventListener('change', updateCanvas);
-    document.getElementById('textContent')?.addEventListener('input', function() {
-        state.photoText = this.value;
-        updateCanvas();
+    });
+
+    // Text layer color
+    document.querySelectorAll('.text-layer-color').forEach(input => {
+        input.addEventListener('input', function() {
+            const layer = parseInt(this.dataset.layer);
+            state.photoTextLayers[layer].color = this.value;
+            updateCanvas();
+        });
+    });
+
+    // Text layer size
+    document.querySelectorAll('.text-layer-size').forEach(input => {
+        input.addEventListener('input', function() {
+            const layer = parseInt(this.dataset.layer);
+            state.photoTextLayers[layer].size = parseInt(this.value);
+            const sizeValue = document.querySelector(`.text-layer-size-value[data-layer="${layer}"]`);
+            if (sizeValue) sizeValue.textContent = this.value + 'px';
+            updateCanvas();
+        });
+    });
+
+    // Text layer font
+    document.querySelectorAll('.text-layer-font').forEach(select => {
+        select.addEventListener('change', function() {
+            const layer = parseInt(this.dataset.layer);
+            state.photoTextLayers[layer].font = this.value;
+            updateCanvas();
+        });
+    });
+
+    // Text layer position buttons
+    document.querySelectorAll('.text-pos-btn').forEach(btn => {
+        btn.addEventListener('click', handleTextPositionChange);
     });
 }
 
@@ -506,6 +533,36 @@ function handlePhotoPositionChange(e) {
         case 'center':
             state.photoImageX = 0.5;
             state.photoImageY = 0.5;
+            break;
+    }
+    updateCanvas();
+}
+
+// Handle text layer position change
+function handleTextPositionChange(e) {
+    const btn = e.target.closest('.text-pos-btn');
+    if (!btn) return;
+
+    const layer = parseInt(btn.dataset.layer);
+    const direction = btn.dataset.direction;
+    const step = 0.03;
+
+    switch (direction) {
+        case 'up':
+            state.photoTextLayers[layer].y = Math.max(0.05, state.photoTextLayers[layer].y - step);
+            break;
+        case 'down':
+            state.photoTextLayers[layer].y = Math.min(0.95, state.photoTextLayers[layer].y + step);
+            break;
+        case 'left':
+            state.photoTextLayers[layer].x = Math.max(0.1, state.photoTextLayers[layer].x - step);
+            break;
+        case 'right':
+            state.photoTextLayers[layer].x = Math.min(0.9, state.photoTextLayers[layer].x + step);
+            break;
+        case 'center':
+            state.photoTextLayers[layer].x = 0.5;
+            // Keep Y position when centering horizontally
             break;
     }
     updateCanvas();
@@ -918,10 +975,13 @@ function resetDesignState() {
     state.photoImageX = 0.5;
     state.photoImageY = 0.5;
     state.photoFitMode = 'cover';
-    state.showPhotoText = false;
-    state.photoText = '';
-    state.photoTextPosition = 'bottom';
     state.gradDirection = 'horizontal';
+    // Reset text layers
+    state.photoTextLayers = [
+        { enabled: false, text: '', x: 0.5, y: 0.2, size: 48, font: 'Impact', color: '#000000' },
+        { enabled: false, text: '', x: 0.5, y: 0.5, size: 32, font: 'Impact', color: '#ffffff' },
+        { enabled: false, text: '', x: 0.5, y: 0.85, size: 24, font: 'Impact', color: '#ffcc00' }
+    ];
     // Logo mode
     state.logoImage = null;
     state.patternStyle = 'diagonal';
@@ -964,13 +1024,19 @@ function resetDesignState() {
     document.getElementById('uploadZone')?.classList.remove('hidden');
     document.getElementById('removeBackground')?.classList.add('hidden');
     document.getElementById('photoImageControls')?.classList.add('hidden');
-    document.getElementById('photoTextSettings')?.classList.add('hidden');
     document.getElementById('uploadedLogo')?.classList.add('hidden');
     document.getElementById('logoUploadZone')?.classList.remove('hidden');
 
-    // Reset photo checkboxes
-    const showPhotoText = document.getElementById('showPhotoText');
-    if (showPhotoText) showPhotoText.checked = false;
+    // Reset text layer checkboxes and settings
+    document.querySelectorAll('.text-layer-toggle').forEach(toggle => {
+        toggle.checked = false;
+    });
+    document.querySelectorAll('.text-layer-settings').forEach(settings => {
+        settings.classList.add('hidden');
+    });
+    document.querySelectorAll('.text-layer-content').forEach(input => {
+        input.value = '';
+    });
 
     // Reset design type selection
     document.querySelectorAll('.design-type-card').forEach(c => {
@@ -1721,62 +1787,29 @@ function drawPhotoMode() {
         ctx.shadowOffsetY = 0;
     }
 
-    // Draw text elements (previously added)
-    state.textElements.forEach(element => {
-        ctx.font = `bold ${element.fontSize}px ${element.fontFamily}`;
-        ctx.fillStyle = element.color;
+    // Draw text layers (up to 3)
+    state.photoTextLayers.forEach((layer, index) => {
+        if (!layer.enabled || !layer.text.trim()) return;
+
+        ctx.font = `bold ${layer.size}px ${layer.font}`;
+        ctx.fillStyle = layer.color;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
+        // Text shadow
         ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
         ctx.shadowBlur = 8;
         ctx.shadowOffsetX = 2;
         ctx.shadowOffsetY = 2;
 
-        ctx.fillText(element.text, element.x, element.y);
+        const textX = canvas.width * layer.x;
+        const textY = canvas.height * layer.y;
+
+        ctx.fillText(layer.text, textX, textY);
 
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
     });
-
-    // Draw current text if showPhotoText is enabled
-    if (state.showPhotoText) {
-        const currentText = document.getElementById('textContent')?.value.trim();
-        if (currentText) {
-            const fontSize = parseInt(document.getElementById('fontSize')?.value) || 60;
-            const fontFamily = document.getElementById('fontFamily')?.value || 'Impact';
-            const color = document.getElementById('textColor')?.value || '#000000';
-
-            ctx.font = `bold ${fontSize}px ${fontFamily}`;
-            ctx.fillStyle = color;
-            ctx.textAlign = 'center';
-
-            // Text shadow
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-            ctx.shadowBlur = 8;
-            ctx.shadowOffsetX = 2;
-            ctx.shadowOffsetY = 2;
-
-            let textY;
-            switch (state.photoTextPosition) {
-                case 'top':
-                    textY = fontSize + 30;
-                    break;
-                case 'center':
-                    textY = canvas.height / 2;
-                    break;
-                case 'bottom':
-                default:
-                    textY = canvas.height - 50;
-                    break;
-            }
-
-            ctx.fillText(currentText, canvas.width / 2, textY);
-
-            ctx.shadowColor = 'transparent';
-            ctx.shadowBlur = 0;
-        }
-    }
 }
 
 // ========== Draw Logo Mode ==========
@@ -2135,43 +2168,20 @@ async function downloadPDF() {
                 hiResCtx.drawImage(state.uploadedImage, x, y, width, height);
             }
 
-            // Draw text elements
-            state.textElements.forEach(element => {
-                hiResCtx.font = `bold ${element.fontSize}px ${element.fontFamily}`;
-                hiResCtx.fillStyle = element.color;
+            // Draw text layers (up to 3)
+            state.photoTextLayers.forEach((layer, index) => {
+                if (!layer.enabled || !layer.text.trim()) return;
+
+                hiResCtx.font = `bold ${layer.size}px ${layer.font}`;
+                hiResCtx.fillStyle = layer.color;
                 hiResCtx.textAlign = 'center';
                 hiResCtx.textBaseline = 'middle';
-                hiResCtx.fillText(element.text, element.x, element.y);
+
+                const textX = canvas.width * layer.x;
+                const textY = canvas.height * layer.y;
+
+                hiResCtx.fillText(layer.text, textX, textY);
             });
-
-            // Draw photo text if enabled
-            if (state.showPhotoText) {
-                const currentText = document.getElementById('textContent')?.value.trim();
-                if (currentText) {
-                    const fontSize = parseInt(document.getElementById('fontSize')?.value) || 60;
-                    const fontFamily = document.getElementById('fontFamily')?.value || 'Impact';
-                    const color = document.getElementById('textColor')?.value || '#000000';
-
-                    hiResCtx.font = `bold ${fontSize}px ${fontFamily}`;
-                    hiResCtx.fillStyle = color;
-                    hiResCtx.textAlign = 'center';
-
-                    let textY;
-                    switch (state.photoTextPosition) {
-                        case 'top':
-                            textY = fontSize + 30;
-                            break;
-                        case 'center':
-                            textY = canvas.height / 2;
-                            break;
-                        case 'bottom':
-                        default:
-                            textY = canvas.height - 50;
-                            break;
-                    }
-                    hiResCtx.fillText(currentText, canvas.width / 2, textY);
-                }
-            }
         } else if (state.designType === 'logo' && state.logoImage) {
             // For logo mode, redraw everything at high resolution
             // Background
