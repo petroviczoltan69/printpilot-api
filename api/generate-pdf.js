@@ -1,5 +1,5 @@
 // Vercel Serverless Function - Generate Print-Ready PDF
-// Creates PDF with bleeds at exact dimensions for professional printing
+// Creates PDF with bleeds, TrimBox, BleedBox and crop marks
 
 const PDFDocument = require('pdfkit');
 const sharp = require('sharp');
@@ -41,58 +41,53 @@ module.exports = async function handler(req, res) {
             widthInches = width;
             heightInches = height;
         } else {
-            // Default: assume feet for larger numbers, inches for smaller
             if (width <= 12 && height <= 12) {
-                widthInches = width * 12; // Assume feet
+                widthInches = width * 12;
                 heightInches = height * 12;
             } else {
-                widthInches = width; // Assume inches
+                widthInches = width;
                 heightInches = height;
             }
         }
 
-        // Add bleed to dimensions
-        const totalWidthInches = widthInches + (bleedInches * 2);
-        const totalHeightInches = heightInches + (bleedInches * 2);
+        // Calculate dimensions
+        const bleedPoints = bleedInches * 72; // Bleed in points
+        const trimWidth = widthInches * 72;   // Trim size (final cut size) in points
+        const trimHeight = heightInches * 72;
+        const totalWidth = trimWidth + (bleedPoints * 2);  // Total with bleeds
+        const totalHeight = trimHeight + (bleedPoints * 2);
 
-        // Calculate pixel dimensions at target DPI
-        const pixelWidth = Math.round(totalWidthInches * targetDPI);
-        const pixelHeight = Math.round(totalHeightInches * targetDPI);
+        // Pixel dimensions at target DPI (including bleed)
+        const pixelWidth = Math.round((widthInches + bleedInches * 2) * targetDPI);
+        const pixelHeight = Math.round((heightInches + bleedInches * 2) * targetDPI);
 
-        // PDF dimensions in points (72 points per inch)
-        const pdfWidth = totalWidthInches * 72;
-        const pdfHeight = totalHeightInches * 72;
-
-        console.log(`Generating PDF: ${widthInches}x${heightInches} inches + ${bleedInches}" bleed = ${totalWidthInches}x${totalHeightInches}" at ${targetDPI} DPI`);
+        console.log(`Generating PDF: ${widthInches}x${heightInches}" trim + ${bleedInches}" bleed at ${targetDPI} DPI`);
 
         // Extract base64 data
         const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
         const imageBuffer = Buffer.from(base64Data, 'base64');
 
-        // Process image with Sharp - resize and convert to high quality PNG
+        // Process image with Sharp
         const processedImage = await sharp(imageBuffer)
             .resize(pixelWidth, pixelHeight, {
                 fit: 'cover',
                 position: 'center',
                 kernel: 'lanczos3'
             })
-            .png({
-                quality: 100,
-                compressionLevel: 6
-            })
+            .png({ compressionLevel: 6 })
             .toBuffer();
 
-        // Create PDF document with exact dimensions
+        // Create PDF document - MediaBox is total size including bleeds
         const doc = new PDFDocument({
-            size: [pdfWidth, pdfHeight],
+            size: [totalWidth, totalHeight],
             margin: 0,
             info: {
                 Title: `${productName || 'PrintPilot Design'} - Print Ready`,
                 Author: 'PrintPilot',
-                Subject: 'Print-Ready PDF with Bleeds',
-                Keywords: 'print, bleed, press-ready',
+                Subject: 'Print-Ready PDF with Bleeds and Crop Marks',
+                Keywords: 'print, bleed, press-ready, crop marks',
                 Creator: 'PrintPilot Design Studio',
-                Producer: 'PDFKit'
+                Producer: 'PDFKit + PrintPilot'
             }
         });
 
@@ -100,74 +95,96 @@ module.exports = async function handler(req, res) {
         const chunks = [];
         doc.on('data', chunk => chunks.push(chunk));
 
-        // Create promise for PDF completion
         const pdfPromise = new Promise((resolve, reject) => {
             doc.on('end', () => resolve(Buffer.concat(chunks)));
             doc.on('error', reject);
         });
 
-        // Add image to PDF (full page, including bleeds)
+        // Add image to PDF (full bleed - covers entire page)
         doc.image(processedImage, 0, 0, {
-            width: pdfWidth,
-            height: pdfHeight
+            width: totalWidth,
+            height: totalHeight
         });
 
-        // Add trim marks (crop marks) at corners
-        const trimOffset = bleedInches * 72; // Convert bleed to points
-        const markLength = 18; // 0.25 inch marks
-        const markOffset = 6; // Small gap from trim line
+        // Draw crop marks (outside the bleed area, indicating trim line)
+        const markLength = 24; // Length of crop marks in points
+        const markGap = 6;     // Gap between trim line and mark start
 
-        doc.strokeColor('#000000')
-           .lineWidth(0.5);
+        doc.strokeColor('#000000').lineWidth(0.5);
 
-        // Top-left corner marks
-        doc.moveTo(trimOffset - markOffset, 0)
-           .lineTo(trimOffset - markOffset, markLength)
+        // Top-left crop marks
+        doc.moveTo(bleedPoints, 0)
+           .lineTo(bleedPoints, bleedPoints - markGap)
            .stroke();
-        doc.moveTo(0, trimOffset - markOffset)
-           .lineTo(markLength, trimOffset - markOffset)
+        doc.moveTo(0, bleedPoints)
+           .lineTo(bleedPoints - markGap, bleedPoints)
            .stroke();
 
-        // Top-right corner marks
-        doc.moveTo(pdfWidth - trimOffset + markOffset, 0)
-           .lineTo(pdfWidth - trimOffset + markOffset, markLength)
+        // Top-right crop marks
+        doc.moveTo(totalWidth - bleedPoints, 0)
+           .lineTo(totalWidth - bleedPoints, bleedPoints - markGap)
            .stroke();
-        doc.moveTo(pdfWidth, trimOffset - markOffset)
-           .lineTo(pdfWidth - markLength, trimOffset - markOffset)
-           .stroke();
-
-        // Bottom-left corner marks
-        doc.moveTo(trimOffset - markOffset, pdfHeight)
-           .lineTo(trimOffset - markOffset, pdfHeight - markLength)
-           .stroke();
-        doc.moveTo(0, pdfHeight - trimOffset + markOffset)
-           .lineTo(markLength, pdfHeight - trimOffset + markOffset)
+        doc.moveTo(totalWidth, bleedPoints)
+           .lineTo(totalWidth - bleedPoints + markGap, bleedPoints)
            .stroke();
 
-        // Bottom-right corner marks
-        doc.moveTo(pdfWidth - trimOffset + markOffset, pdfHeight)
-           .lineTo(pdfWidth - trimOffset + markOffset, pdfHeight - markLength)
+        // Bottom-left crop marks
+        doc.moveTo(bleedPoints, totalHeight)
+           .lineTo(bleedPoints, totalHeight - bleedPoints + markGap)
            .stroke();
-        doc.moveTo(pdfWidth, pdfHeight - trimOffset + markOffset)
-           .lineTo(pdfWidth - markLength, pdfHeight - trimOffset + markOffset)
+        doc.moveTo(0, totalHeight - bleedPoints)
+           .lineTo(bleedPoints - markGap, totalHeight - bleedPoints)
            .stroke();
 
-        // Add registration mark (target) in top-left bleed area
-        const regX = trimOffset / 2;
-        const regY = trimOffset / 2;
-        doc.circle(regX, regY, 4).stroke();
-        doc.circle(regX, regY, 2).stroke();
-        doc.moveTo(regX - 6, regY).lineTo(regX + 6, regY).stroke();
-        doc.moveTo(regX, regY - 6).lineTo(regX, regY + 6).stroke();
+        // Bottom-right crop marks
+        doc.moveTo(totalWidth - bleedPoints, totalHeight)
+           .lineTo(totalWidth - bleedPoints, totalHeight - bleedPoints + markGap)
+           .stroke();
+        doc.moveTo(totalWidth, totalHeight - bleedPoints)
+           .lineTo(totalWidth - bleedPoints + markGap, totalHeight - bleedPoints)
+           .stroke();
 
-        // Finalize PDF
+        // Registration marks in corners (in bleed area)
+        const regOffset = bleedPoints / 2;
+
+        // Top-left registration mark
+        drawRegistrationMark(doc, regOffset, regOffset);
+        // Top-right registration mark
+        drawRegistrationMark(doc, totalWidth - regOffset, regOffset);
+        // Bottom-left registration mark
+        drawRegistrationMark(doc, regOffset, totalHeight - regOffset);
+        // Bottom-right registration mark
+        drawRegistrationMark(doc, totalWidth - regOffset, totalHeight - regOffset);
+
+        // Color bars (CMYK reference) - top bleed area
+        const barWidth = 10;
+        const barHeight = 6;
+        const barY = 2;
+        const barStartX = bleedPoints + 20;
+
+        // Cyan
+        doc.rect(barStartX, barY, barWidth, barHeight).fill('#00FFFF');
+        // Magenta
+        doc.rect(barStartX + barWidth + 2, barY, barWidth, barHeight).fill('#FF00FF');
+        // Yellow
+        doc.rect(barStartX + (barWidth + 2) * 2, barY, barWidth, barHeight).fill('#FFFF00');
+        // Black
+        doc.rect(barStartX + (barWidth + 2) * 3, barY, barWidth, barHeight).fill('#000000');
+
         doc.end();
 
         // Wait for PDF to complete
-        const pdfBuffer = await pdfPromise;
+        let pdfBuffer = await pdfPromise;
+
+        // Post-process PDF to add TrimBox and BleedBox
+        pdfBuffer = addPDFBoxes(pdfBuffer, {
+            mediaBox: [0, 0, totalWidth, totalHeight],
+            bleedBox: [0, 0, totalWidth, totalHeight],
+            trimBox: [bleedPoints, bleedPoints, totalWidth - bleedPoints, totalHeight - bleedPoints]
+        });
+
         const pdfBase64 = pdfBuffer.toString('base64');
 
-        // Generate filename
         const filename = `PrintPilot_${(productName || 'Design').replace(/\s+/g, '_')}_${widthInches}x${heightInches}in_${targetDPI}dpi_PRINT.pdf`;
 
         return res.status(200).json({
@@ -176,10 +193,10 @@ module.exports = async function handler(req, res) {
             filename: filename,
             specs: {
                 dimensions: `${widthInches}" x ${heightInches}"`,
-                withBleed: `${totalWidthInches}" x ${totalHeightInches}"`,
+                withBleed: `${(widthInches + bleedInches * 2).toFixed(3)}" x ${(heightInches + bleedInches * 2).toFixed(3)}"`,
                 bleed: `${bleedInches}" (${Math.round(bleedInches * 25.4)}mm)`,
                 dpi: targetDPI,
-                colorSpace: 'RGB (printer will convert to CMYK)',
+                colorSpace: 'RGB (printer converts to CMYK)',
                 pixelDimensions: `${pixelWidth} x ${pixelHeight} px`
             }
         });
@@ -192,3 +209,43 @@ module.exports = async function handler(req, res) {
         });
     }
 };
+
+// Draw a registration mark (target symbol)
+function drawRegistrationMark(doc, x, y) {
+    const size = 4;
+    doc.strokeColor('#000000').lineWidth(0.3);
+    // Outer circle
+    doc.circle(x, y, size).stroke();
+    // Inner circle
+    doc.circle(x, y, size / 2).stroke();
+    // Crosshairs
+    doc.moveTo(x - size - 2, y).lineTo(x + size + 2, y).stroke();
+    doc.moveTo(x, y - size - 2).lineTo(x, y + size + 2).stroke();
+}
+
+// Add TrimBox and BleedBox to PDF by modifying the page object
+function addPDFBoxes(pdfBuffer, boxes) {
+    let pdfString = pdfBuffer.toString('binary');
+
+    // Find the page object (usually object 3 or 4)
+    // Look for /Type /Page pattern
+    const pagePattern = /(\d+\s+0\s+obj[\s\S]*?\/Type\s*\/Page[\s\S]*?)(\/MediaBox\s*\[[^\]]+\])([\s\S]*?endobj)/;
+
+    const match = pdfString.match(pagePattern);
+    if (match) {
+        const beforeMediaBox = match[1];
+        const mediaBoxStr = match[2];
+        const afterMediaBox = match[3];
+
+        // Create box strings
+        const trimBoxStr = `/TrimBox [${boxes.trimBox.join(' ')}]`;
+        const bleedBoxStr = `/BleedBox [${boxes.bleedBox.join(' ')}]`;
+
+        // Insert TrimBox and BleedBox after MediaBox
+        const newPageObj = beforeMediaBox + mediaBoxStr + ' ' + trimBoxStr + ' ' + bleedBoxStr + afterMediaBox;
+
+        pdfString = pdfString.replace(pagePattern, newPageObj);
+    }
+
+    return Buffer.from(pdfString, 'binary');
+}
