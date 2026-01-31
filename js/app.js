@@ -221,6 +221,8 @@ let state = {
     singleTaglineColor: '#666666',
     // Highlight mode controls
     highlightSize: 250,
+    highlightLogoX: 0.5,  // 0-1 ratio of canvas width
+    highlightLogoY: 0.5,  // 0-1 ratio of canvas height
     // Highlight background
     showHighlightBg: false,
     highlightBgSize: 120,
@@ -691,31 +693,55 @@ function initLogoControls() {
     }
 }
 
-// Handle position button clicks for single logo
+// Handle position button clicks for single logo and highlight logo
 function handlePositionChange(e) {
     const btn = e.target.closest('.position-btn');
     if (!btn) return;
 
     const direction = btn.dataset.direction;
+    const target = btn.dataset.target || 'single'; // 'single' or 'highlight'
     const step = 0.05; // 5% of canvas
 
-    switch (direction) {
-        case 'up':
-            state.singleLogoY = Math.max(0.1, state.singleLogoY - step);
-            break;
-        case 'down':
-            state.singleLogoY = Math.min(0.9, state.singleLogoY + step);
-            break;
-        case 'left':
-            state.singleLogoX = Math.max(0.1, state.singleLogoX - step);
-            break;
-        case 'right':
-            state.singleLogoX = Math.min(0.9, state.singleLogoX + step);
-            break;
-        case 'center':
-            state.singleLogoX = 0.5;
-            state.singleLogoY = 0.5;
-            break;
+    if (target === 'highlight') {
+        // Handle highlight logo position
+        switch (direction) {
+            case 'up':
+                state.highlightLogoY = Math.max(0.1, state.highlightLogoY - step);
+                break;
+            case 'down':
+                state.highlightLogoY = Math.min(0.9, state.highlightLogoY + step);
+                break;
+            case 'left':
+                state.highlightLogoX = Math.max(0.1, state.highlightLogoX - step);
+                break;
+            case 'right':
+                state.highlightLogoX = Math.min(0.9, state.highlightLogoX + step);
+                break;
+            case 'center':
+                state.highlightLogoX = 0.5;
+                state.highlightLogoY = 0.5;
+                break;
+        }
+    } else {
+        // Handle single logo position
+        switch (direction) {
+            case 'up':
+                state.singleLogoY = Math.max(0.1, state.singleLogoY - step);
+                break;
+            case 'down':
+                state.singleLogoY = Math.min(0.9, state.singleLogoY + step);
+                break;
+            case 'left':
+                state.singleLogoX = Math.max(0.1, state.singleLogoX - step);
+                break;
+            case 'right':
+                state.singleLogoX = Math.min(0.9, state.singleLogoX + step);
+                break;
+            case 'center':
+                state.singleLogoX = 0.5;
+                state.singleLogoY = 0.5;
+                break;
+        }
     }
     updateCanvas();
 }
@@ -800,6 +826,8 @@ function resetDesignState() {
     state.singleTaglineFont = 'Arial';
     state.singleTaglineColor = '#666666';
     state.highlightSize = 250;
+    state.highlightLogoX = 0.5;
+    state.highlightLogoY = 0.5;
     state.showHighlightBg = false;
     state.highlightBgSize = 120;
     state.highlightBgColor = '#ffffff';
@@ -1601,11 +1629,15 @@ function drawLogoMode() {
         if (state.showHighlightText) textOffset += 50;
         if (state.showHighlightTagline) textOffset += 30;
 
-        // Draw center highlight logo
+        // Draw highlight logo using position state (logo, background and text move together)
         const highlightWidth = state.highlightSize;
         const highlightHeight = (state.logoImage.height / state.logoImage.width) * highlightWidth;
-        const centerX = canvas.width / 2 - highlightWidth / 2;
-        const centerY = canvas.height / 2 - highlightHeight / 2 - textOffset / 2;
+
+        // Use highlightLogoX/Y for positioning (default 0.5 = center)
+        const logoCenterX = canvas.width * state.highlightLogoX;
+        const logoCenterY = canvas.height * state.highlightLogoY;
+        const centerX = logoCenterX - highlightWidth / 2;
+        const centerY = logoCenterY - highlightHeight / 2 - textOffset / 2;
 
         // Draw background behind highlight logo if enabled
         if (state.showHighlightBg) {
@@ -1640,23 +1672,23 @@ function drawLogoMode() {
 
         ctx.drawImage(state.logoImage, centerX, centerY, highlightWidth, highlightHeight);
 
-        // Draw text below if enabled
+        // Draw text below if enabled (follows logo position)
         let textY = centerY + highlightHeight + 45;
 
         if (state.showHighlightText) {
             ctx.font = `bold 36px ${state.highlightTextFont}`;
             ctx.fillStyle = state.highlightTextColor;
             ctx.textAlign = 'center';
-            ctx.fillText(state.highlightText, canvas.width / 2, textY);
+            ctx.fillText(state.highlightText, logoCenterX, textY);
             textY += 35;
         }
 
-        // Draw tagline if enabled
+        // Draw tagline if enabled (follows logo position)
         if (state.showHighlightTagline) {
             ctx.font = `18px ${state.highlightTaglineFont}`;
             ctx.fillStyle = state.highlightTaglineColor;
             ctx.textAlign = 'center';
-            ctx.fillText(state.highlightTagline, canvas.width / 2, textY);
+            ctx.fillText(state.highlightTagline, logoCenterX, textY);
         }
         return;
     }
@@ -1879,7 +1911,7 @@ async function downloadPDF() {
                     hiResCtx.fillText(state.singleTagline, canvas.width * state.singleLogoX, textY);
                 }
             } else if (state.patternStyle === 'highlight') {
-                // Highlight mode - pattern + centered logo
+                // Highlight mode - pattern + positioned logo (with background and text)
                 hiResCtx.save();
                 hiResCtx.translate(canvas.width / 2 + offsetX, canvas.height / 2 + offsetY);
                 hiResCtx.rotate(rotation);
@@ -1906,8 +1938,12 @@ async function downloadPDF() {
 
                 const highlightWidth = state.highlightSize;
                 const highlightHeight = (state.logoImage.height / state.logoImage.width) * highlightWidth;
-                const centerX = canvas.width / 2 - highlightWidth / 2;
-                const centerY = canvas.height / 2 - highlightHeight / 2 - textOffset / 2;
+
+                // Use highlightLogoX/Y for positioning
+                const logoCenterX = canvas.width * state.highlightLogoX;
+                const logoCenterY = canvas.height * state.highlightLogoY;
+                const centerX = logoCenterX - highlightWidth / 2;
+                const centerY = logoCenterY - highlightHeight / 2 - textOffset / 2;
 
                 // Background behind highlight logo
                 if (state.showHighlightBg) {
@@ -1940,14 +1976,14 @@ async function downloadPDF() {
                     hiResCtx.font = `bold 36px ${state.highlightTextFont}`;
                     hiResCtx.fillStyle = state.highlightTextColor;
                     hiResCtx.textAlign = 'center';
-                    hiResCtx.fillText(state.highlightText, canvas.width / 2, textY);
+                    hiResCtx.fillText(state.highlightText, logoCenterX, textY);
                     textY += 35;
                 }
                 if (state.showHighlightTagline) {
                     hiResCtx.font = `18px ${state.highlightTaglineFont}`;
                     hiResCtx.fillStyle = state.highlightTaglineColor;
                     hiResCtx.textAlign = 'center';
-                    hiResCtx.fillText(state.highlightTagline, canvas.width / 2, textY);
+                    hiResCtx.fillText(state.highlightTagline, logoCenterX, textY);
                 }
             } else {
                 // Grid, Diagonal, Offset patterns
