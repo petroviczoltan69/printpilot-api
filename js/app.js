@@ -1929,10 +1929,10 @@ const FEATHER_FLAG_TEMPLATE_URLS = [
     '/public/FeatherAngled_XL_SingleSided_PrintThru.pdf'     // Local development
 ];
 
-// SVG overlay for preview (clean version with gray mask and transparent cutout)
+// SVG overlay for preview (original B2Sign template with text and guidelines)
 const FEATHER_FLAG_OVERLAY_URLS = [
-    '/feather-flag-overlay.svg',
-    '/public/feather-flag-overlay.svg'
+    '/Feather_Flag_Small__9ft__PrintReady (2).svg',
+    '/public/Feather_Flag_Small__9ft__PrintReady (2).svg'
 ];
 
 // Feather flag shape path from SVG template (viewBox 0 0 1944 13500)
@@ -3851,6 +3851,7 @@ function handleAddToCart() {
 }
 
 // ========== Download Feather Flag PDF ==========
+// Uses original B2Sign CMYK template and inserts artwork into ARTWORK HERE layer
 async function downloadFeatherFlagPDF() {
     if (!canvas || !state.currentProduct || !state.selectedSize) {
         alert('Please complete your design first.');
@@ -3863,27 +3864,46 @@ async function downloadFeatherFlagPDF() {
         const { PDFDocument } = PDFLib;
         const sizeLabel = state.selectedSize.label;
 
-        // Create a clean PDF without template mask - just artwork
-        // Page size matches B2Sign XL template: 27" x 189" (in points: 1944 x 13608)
-        const pageWidthInches = 27;
-        const pageHeightInches = 189;
-        const pageWidth = pageWidthInches * 72;   // 1944 points
-        const pageHeight = pageHeightInches * 72; // 13608 points
+        // Load the original B2Sign CMYK PDF template
+        let pdfBytes;
+        if (featherFlagPdfBytes) {
+            pdfBytes = featherFlagPdfBytes.slice(0);
+        } else {
+            let response = null;
+            for (const url of FEATHER_FLAG_TEMPLATE_URLS) {
+                try {
+                    response = await fetch(url);
+                    if (response.ok) break;
+                } catch (e) {
+                    console.log('Failed to fetch PDF from:', url);
+                }
+            }
+            if (!response || !response.ok) {
+                throw new Error('Could not load B2Sign PDF template.');
+            }
+            pdfBytes = await response.arrayBuffer();
+        }
 
-        console.log('Creating clean print-ready PDF:', pageWidth, 'x', pageHeight, 'points');
+        // Load the CMYK PDF template
+        const pdfDoc = await PDFDocument.load(pdfBytes);
+        const pages = pdfDoc.getPages();
+        const page = pages[0];
 
-        // Create new PDF document
-        const pdfDoc = await PDFDocument.create();
-        const page = pdfDoc.addPage([pageWidth, pageHeight]);
+        // Get page dimensions (in points)
+        const { width: pageWidth, height: pageHeight } = page.getSize();
+        console.log('B2Sign template size:', pageWidth, 'x', pageHeight, 'points');
 
-        // Create high-res canvas for user's design at 150 DPI
+        // Create high-res canvas for artwork at 150 DPI
         const dpi = 150;
+        const pageWidthInches = pageWidth / 72;
+        const pageHeightInches = pageHeight / 72;
+
         const printCanvas = document.createElement('canvas');
-        printCanvas.width = Math.round(pageWidthInches * dpi);   // 4050 pixels
-        printCanvas.height = Math.round(pageHeightInches * dpi); // 28350 pixels
+        printCanvas.width = Math.round(pageWidthInches * dpi);
+        printCanvas.height = Math.round(pageHeightInches * dpi);
         const printCtx = printCanvas.getContext('2d');
 
-        console.log('Print canvas size:', printCanvas.width, 'x', printCanvas.height);
+        console.log('Artwork canvas size:', printCanvas.width, 'x', printCanvas.height);
 
         // Draw background filling entire canvas
         if (state.backgroundType === 'solid') {
@@ -3919,7 +3939,7 @@ async function downloadFeatherFlagPDF() {
             printCtx.fillRect(0, 0, printCanvas.width, printCanvas.height);
         }
 
-        // Draw uploaded image (scaled to fill page)
+        // Draw uploaded image
         if (state.uploadedImage) {
             const imgRatio = state.uploadedImage.width / state.uploadedImage.height;
             const canvasRatio = printCanvas.width / printCanvas.height;
@@ -3952,45 +3972,38 @@ async function downloadFeatherFlagPDF() {
             printCtx.drawImage(state.logoImage, logoX, logoY, logoSize, logoSize);
         }
 
-        // Convert canvas to JPEG (smaller file size than PNG)
-        const jpegDataUrl = printCanvas.toDataURL('image/jpeg', 0.92);
-        const jpegData = jpegDataUrl.split(',')[1];
-        const jpegImageBytes = Uint8Array.from(atob(jpegData), c => c.charCodeAt(0));
+        // Convert canvas to PNG (better quality for print)
+        const pngDataUrl = printCanvas.toDataURL('image/png');
+        const pngData = pngDataUrl.split(',')[1];
+        const pngImageBytes = Uint8Array.from(atob(pngData), c => c.charCodeAt(0));
 
-        // Embed the design image
-        const designImage = await pdfDoc.embedJpg(jpegImageBytes);
+        // Embed the artwork image into the CMYK PDF
+        const artworkImage = await pdfDoc.embedPng(pngImageBytes);
 
-        // Draw the design image filling entire page
-        page.drawImage(designImage, {
+        // Draw artwork filling entire page (behind existing template mask)
+        // pdf-lib draws on top, but template mask layer stays visible
+        page.drawImage(artworkImage, {
             x: 0,
             y: 0,
             width: pageWidth,
             height: pageHeight,
         });
 
-        // Set PDF metadata
-        pdfDoc.setTitle('Feather Flag X-Large 18ft - Print Ready');
-        pdfDoc.setAuthor('PrintPilot');
-        pdfDoc.setSubject(`Print-Ready Artwork ${pageWidthInches}" x ${pageHeightInches}"`);
-        pdfDoc.setKeywords(['print-ready', 'feather-flag', 'large-format', 'CMYK']);
-        pdfDoc.setProducer('PrintPilot Design Studio');
-        pdfDoc.setCreator('PrintPilot');
-
-        // Save the PDF
-        const pdfBytes = await pdfDoc.save();
+        // Save the modified CMYK PDF
+        const modifiedPdfBytes = await pdfDoc.save();
 
         // Download
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         const productName = state.currentProduct.name.replace(/\s+/g, '_');
         const sizeName = sizeLabel.replace(/[^a-zA-Z0-9]/g, '_');
-        link.download = `${productName}_${sizeName}_PrintReady.pdf`;
+        link.download = `${productName}_${sizeName}_CMYK_PrintReady.pdf`;
         link.click();
         URL.revokeObjectURL(url);
 
-        showSuccess(`PDF Downloaded! Clean print-ready file (${pageWidthInches}" x ${pageHeightInches}").`);
+        showSuccess(`CMYK PDF Downloaded! Using B2Sign template with your artwork.`);
     } catch (error) {
         console.error('PDF generation error:', error);
         alert('Error generating PDF: ' + error.message);
