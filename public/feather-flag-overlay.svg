@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1944 13500">
+  <defs>
+    <style>
+      .mask-bg {
+        fill: #f0f0f0;
+        fill-rule: evenodd;
+      }
+      .cut-line {
+        fill: none;
+        stroke: #ed1c24;
+        stroke-width: 4;
+        stroke-dasharray: 20 20;
+      }
+    </style>
+  </defs>
+  <!-- Gray background with transparent cutout for artwork -->
+  <path class="mask-bg" d="M0,0v13500h1944V0H0ZM1852.5,12377.6v-7.1l-1726.5,992.9,16.3-11146.5S211.3,586.2,1861.9,138.3l-9.4,12239.3Z"/>
+  <!-- Red dashed cut line -->
+  <path class="cut-line" d="M1852.5,138.3l-9.4,12239.3v-7.1l-1726.5,992.9,16.3-11146.5S211.3,586.2,1861.9,138.3Z"/>
+</svg>
