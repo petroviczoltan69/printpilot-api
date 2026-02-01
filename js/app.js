@@ -1904,8 +1904,7 @@ function addTextLayer() {
 // ========== Check if Feather Flag Product ==========
 function isFeatherFlagProduct() {
     if (!state.currentProduct) return false;
-    const productId = Object.keys(PRODUCTS).find(k => PRODUCTS[k] === state.currentProduct);
-    return productId === 'feather-flag';
+    return state.currentProduct.id === 'feather-flag';
 }
 
 // ========== Draw Feather Flag Shape (curved left edge) ==========
