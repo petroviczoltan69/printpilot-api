@@ -1537,20 +1537,25 @@ function updateCanvasSize() {
     // For very narrow products like feather flags, ensure minimum width for quality
     const isVeryNarrow = aspectRatio < 0.2;
 
+    // Get preview container width for responsive sizing
+    const previewContainer = canvas.parentElement;
+    const maxDisplayWidth = previewContainer ? Math.min(previewContainer.clientWidth - 2, 600) : 600;
+    const maxDisplayHeight = 550; // Limit max height for preview
+
     let displayWidth, displayHeight;
 
     if (isVeryNarrow) {
-        // Feather flags: use full preview width, height follows from SVG aspect ratio
-        displayWidth = 600; // Full width for better visibility
-        displayHeight = displayWidth / aspectRatio;
+        // Feather flags: limit by max height, calculate width from aspect ratio
+        displayHeight = maxDisplayHeight;
+        displayWidth = displayHeight * aspectRatio;
     } else if (aspectRatio >= 1) {
         // Landscape or square
-        displayWidth = 600;
-        displayHeight = 600 / aspectRatio;
+        displayWidth = maxDisplayWidth;
+        displayHeight = maxDisplayWidth / aspectRatio;
     } else {
         // Portrait
-        displayHeight = 600;
-        displayWidth = 600 * aspectRatio;
+        displayHeight = Math.min(maxDisplayHeight, 600);
+        displayWidth = displayHeight * aspectRatio;
     }
 
     // Set canvas internal resolution higher for quality (4x for feather flags for better SVG text, dpr for others)
