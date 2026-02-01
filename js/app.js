@@ -6,6 +6,30 @@ const CONFIG = {
     API_URL: 'https://printpilot-api.vercel.app'
 };
 
+// Helper function to draw image with cover fit (maintains aspect ratio, crops to fill)
+function drawImageCover(ctx, img, canvasWidth, canvasHeight) {
+    const imgRatio = img.width / img.height;
+    const canvasRatio = canvasWidth / canvasHeight;
+
+    let drawWidth, drawHeight, offsetX, offsetY;
+
+    if (imgRatio > canvasRatio) {
+        // Image is wider than canvas - fit by height, crop width
+        drawHeight = canvasHeight;
+        drawWidth = canvasHeight * imgRatio;
+        offsetX = (canvasWidth - drawWidth) / 2;
+        offsetY = 0;
+    } else {
+        // Image is taller than canvas - fit by width, crop height
+        drawWidth = canvasWidth;
+        drawHeight = canvasWidth / imgRatio;
+        offsetX = 0;
+        offsetY = (canvasHeight - drawHeight) / 2;
+    }
+
+    ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+}
+
 // ========== Product Data ==========
 const PRODUCTS = {
     'vinyl-banner': {
@@ -1873,7 +1897,7 @@ function drawPhotoMode() {
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     } else if (state.backgroundType === 'ai' && state.backgroundImage) {
-        ctx.drawImage(state.backgroundImage, 0, 0, canvas.width, canvas.height);
+        drawImageCover(ctx, state.backgroundImage, canvas.width, canvas.height);
     }
 
     // Draw uploaded image with position and scale controls
@@ -2205,7 +2229,7 @@ function drawDesignToContext(targetCtx, w, h) {
         targetCtx.fillStyle = gradient;
         targetCtx.fillRect(0, 0, w, h);
     } else if (state.backgroundType === 'ai' && state.backgroundImage) {
-        targetCtx.drawImage(state.backgroundImage, 0, 0, w, h);
+        drawImageCover(targetCtx, state.backgroundImage, w, h);
     }
 
     // Draw uploaded image
@@ -2875,7 +2899,7 @@ async function downloadPDF() {
                 hiResCtx.fillStyle = gradient;
                 hiResCtx.fillRect(0, 0, canvas.width, canvas.height);
             } else if (state.backgroundType === 'ai' && state.backgroundImage) {
-                hiResCtx.drawImage(state.backgroundImage, 0, 0, canvas.width, canvas.height);
+                drawImageCover(hiResCtx, state.backgroundImage, canvas.width, canvas.height);
             }
 
             // Draw uploaded image with position and scale
