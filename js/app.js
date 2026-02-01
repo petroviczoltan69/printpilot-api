@@ -1925,10 +1925,10 @@ const FEATHER_FLAG_TEMPLATE_URLS = [
     '/public/FeatherAngled_XL_SingleSided_PrintThru.pdf'     // Local development
 ];
 
-// PNG overlay for preview (higher quality than PDF rendering)
+// SVG overlay for preview (smaller file size, perfect scaling)
 const FEATHER_FLAG_OVERLAY_URLS = [
-    '/Feather_Flag_Small__9ft__PrintReady (2).png',
-    '/public/Feather_Flag_Small__9ft__PrintReady (2).png'
+    '/Feather_Flag_Small__9ft__PrintReady (2).svg',
+    '/public/Feather_Flag_Small__9ft__PrintReady (2).svg'
 ];
 
 // Feather flag shape path from SVG template (viewBox 0 0 1944 13500)
@@ -1945,22 +1945,25 @@ FEATHER_FLAG_ARTWORK_PATH.lineTo(142.3, 216.9);    // Up to top area
 FEATHER_FLAG_ARTWORK_PATH.bezierCurveTo(211.3, 586.2, 1861.9, 138.3, 1852.5, 138.3); // Curve at top
 FEATHER_FLAG_ARTWORK_PATH.closePath();
 
-// ========== Load PNG overlay for high-quality preview ==========
+// ========== Load SVG overlay for preview ==========
 async function loadFeatherFlagOverlay() {
     if (featherFlagOverlayImage) return featherFlagOverlayImage;
     if (featherFlagOverlayLoading) return null;
 
     featherFlagOverlayLoading = true;
-    console.log('Loading feather flag PNG overlay...');
+    console.log('Loading feather flag SVG overlay...');
 
     try {
         for (const url of FEATHER_FLAG_OVERLAY_URLS) {
-            console.log('Trying to fetch PNG overlay from:', url);
+            console.log('Trying to fetch SVG overlay from:', url);
             try {
                 const response = await fetch(url);
                 if (response.ok) {
-                    const blob = await response.blob();
-                    const imageUrl = URL.createObjectURL(blob);
+                    const svgText = await response.text();
+
+                    // Create image from SVG
+                    const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
+                    const imageUrl = URL.createObjectURL(svgBlob);
 
                     featherFlagOverlayImage = new Image();
                     featherFlagOverlayImage.src = imageUrl;
@@ -1970,7 +1973,7 @@ async function loadFeatherFlagOverlay() {
                         featherFlagOverlayImage.onerror = reject;
                     });
 
-                    console.log('PNG overlay loaded successfully:', featherFlagOverlayImage.width, 'x', featherFlagOverlayImage.height);
+                    console.log('SVG overlay loaded successfully:', featherFlagOverlayImage.width, 'x', featherFlagOverlayImage.height);
 
                     // Trigger re-render
                     if (isFeatherFlagProduct() && canvas && ctx) {
@@ -1980,7 +1983,7 @@ async function loadFeatherFlagOverlay() {
                     return featherFlagOverlayImage;
                 }
             } catch (e) {
-                console.log('Failed to fetch PNG from:', url, e);
+                console.log('Failed to fetch SVG from:', url, e);
             }
         }
         console.warn('Could not load feather flag PNG overlay');
@@ -2176,21 +2179,9 @@ function drawFeatherFlagWithOverlay(overlay) {
         drawY = 0;
     }
 
-    // Get artwork bounds
-    const bounds = getFeatherFlagArtworkBounds();
-    const artworkX = drawX + bounds.left * drawWidth;
-    const artworkY = drawY + bounds.top * drawHeight;
-    const artworkW = (bounds.right - bounds.left) * drawWidth;
-    const artworkH = (bounds.bottom - bounds.top) * drawHeight;
+    // STEP 1: Draw user's artwork (PNG overlay has transparent hole where artwork shows)
 
-    // STEP 1: Draw user's design first (clipped to flag shape)
-    ctx.save();
-
-    // Create clipping path
-    createFeatherFlagClipPath(ctx, { width: drawWidth, height: drawHeight }, drawX, drawY);
-    ctx.clip();
-
-    // Draw background
+    // Draw background filling the draw area
     if (state.backgroundType === 'solid') {
         const color = document.getElementById('bgColor')?.value || '#ffffff';
         ctx.fillStyle = color;
@@ -2224,27 +2215,27 @@ function drawFeatherFlagWithOverlay(overlay) {
         ctx.fillRect(drawX, drawY, drawWidth, drawHeight);
     }
 
-    // Draw uploaded image (scaled to fit artwork area)
+    // Draw uploaded image (fills entire draw area)
     if (state.uploadedImage) {
         const imgRatio = state.uploadedImage.width / state.uploadedImage.height;
-        const areaRatio = artworkW / artworkH;
+        const areaRatio = drawWidth / drawHeight;
         let imgX, imgY, imgW, imgH;
 
         if (state.photoFitMode === 'cover') {
             if (imgRatio > areaRatio) {
-                imgH = artworkH * (state.photoImageScale / 100);
+                imgH = drawHeight * (state.photoImageScale / 100);
                 imgW = imgH * imgRatio;
             } else {
-                imgW = artworkW * (state.photoImageScale / 100);
+                imgW = drawWidth * (state.photoImageScale / 100);
                 imgH = imgW / imgRatio;
             }
-            imgX = artworkX + (artworkW - imgW) * state.photoImageX;
-            imgY = artworkY + (artworkH - imgH) * state.photoImageY;
+            imgX = drawX + (drawWidth - imgW) * state.photoImageX;
+            imgY = drawY + (drawHeight - imgH) * state.photoImageY;
         } else {
-            imgW = artworkW * 0.9 * (state.photoImageScale / 100);
+            imgW = drawWidth * 0.9 * (state.photoImageScale / 100);
             imgH = imgW / imgRatio;
-            imgX = artworkX + (artworkW - imgW) / 2;
-            imgY = artworkY + (artworkH - imgH) / 2;
+            imgX = drawX + (drawWidth - imgW) / 2;
+            imgY = drawY + (drawHeight - imgH) / 2;
         }
 
         ctx.drawImage(state.uploadedImage, imgX, imgY, imgW, imgH);
@@ -2252,15 +2243,13 @@ function drawFeatherFlagWithOverlay(overlay) {
 
     // Draw logo if in logo mode
     if (state.designType === 'logo' && state.logoImage) {
-        const logoSize = Math.min(artworkW, artworkH) * 0.6;
-        const logoX = artworkX + (artworkW - logoSize) / 2;
-        const logoY = artworkY + (artworkH - logoSize) / 2;
+        const logoSize = Math.min(drawWidth, drawHeight) * 0.6;
+        const logoX = drawX + (drawWidth - logoSize) / 2;
+        const logoY = drawY + (drawHeight - logoSize) / 2;
         ctx.drawImage(state.logoImage, logoX, logoY, logoSize, logoSize);
     }
 
-    ctx.restore();
-
-    // STEP 2: Draw PNG overlay on top (template mask with guides)
+    // STEP 2: Draw PNG overlay on top - transparent hole shows artwork beneath
     ctx.drawImage(overlay, drawX, drawY, drawWidth, drawHeight);
 }
 
@@ -3870,69 +3859,27 @@ async function downloadFeatherFlagPDF() {
         const { PDFDocument } = PDFLib;
         const sizeLabel = state.selectedSize.label;
 
-        // Load the original B2Sign PDF template
-        let pdfBytes;
-        if (featherFlagPdfBytes) {
-            pdfBytes = featherFlagPdfBytes.slice(0);
-        } else {
-            let response = null;
-            for (const url of FEATHER_FLAG_TEMPLATE_URLS) {
-                try {
-                    response = await fetch(url);
-                    if (response.ok) break;
-                } catch (e) {
-                    console.log('Failed to fetch from:', url);
-                }
-            }
-            if (!response || !response.ok) {
-                throw new Error('Could not load PDF template. Make sure the file is deployed.');
-            }
-            pdfBytes = await response.arrayBuffer();
-        }
+        // Create a clean PDF without template mask - just artwork
+        // Page size matches B2Sign XL template: 27" x 189" (in points: 1944 x 13608)
+        const pageWidthInches = 27;
+        const pageHeightInches = 189;
+        const pageWidth = pageWidthInches * 72;   // 1944 points
+        const pageHeight = pageHeightInches * 72; // 13608 points
 
-        // Load the PDF with pdf-lib
-        const pdfDoc = await PDFDocument.load(pdfBytes);
-        const pages = pdfDoc.getPages();
-        const page = pages[0];
+        console.log('Creating clean print-ready PDF:', pageWidth, 'x', pageHeight, 'points');
 
-        // Get page dimensions (in points, 72 points = 1 inch)
-        const { width: pageWidth, height: pageHeight } = page.getSize();
-        console.log('PDF page size:', pageWidth, 'x', pageHeight, 'points');
+        // Create new PDF document
+        const pdfDoc = await PDFDocument.create();
+        const page = pdfDoc.addPage([pageWidth, pageHeight]);
 
-        // Use the same artwork bounds as preview (from SVG analysis)
-        // SVG viewBox: 1944 x 13500
-        // Artwork bounds normalized to 0-1 range
-        const bounds = getFeatherFlagArtworkBounds();
-
-        // Convert bounds to PDF coordinates
-        // PDF y-coordinate starts from BOTTOM, so we need to flip
-        const artworkX = bounds.left * pageWidth;
-        const artworkWidth = (bounds.right - bounds.left) * pageWidth;
-        const artworkHeight = (bounds.bottom - bounds.top) * pageHeight;
-        // Flip Y: PDF origin is bottom-left, SVG origin is top-left
-        const artworkY = pageHeight - (bounds.bottom * pageHeight);
-
-        console.log('Artwork area:', artworkX, artworkY, artworkWidth, artworkHeight);
-
-        // Create high-res canvas for user's design
-        // Use the SVG viewBox proportions for correct aspect ratio
-        const svgWidth = 1944;
-        const svgHeight = 13500;
+        // Create high-res canvas for user's design at 150 DPI
         const dpi = 150;
-
-        // Calculate canvas size based on artwork area in inches
-        const artworkWidthInches = artworkWidth / 72;
-        const artworkHeightInches = artworkHeight / 72;
-
         const printCanvas = document.createElement('canvas');
-        printCanvas.width = Math.round(artworkWidthInches * dpi);
-        printCanvas.height = Math.round(artworkHeightInches * dpi);
+        printCanvas.width = Math.round(pageWidthInches * dpi);   // 4050 pixels
+        printCanvas.height = Math.round(pageHeightInches * dpi); // 28350 pixels
         const printCtx = printCanvas.getContext('2d');
 
         console.log('Print canvas size:', printCanvas.width, 'x', printCanvas.height);
-
-        // Clear canvas
-        printCtx.clearRect(0, 0, printCanvas.width, printCanvas.height);
 
         // Draw background filling entire canvas
         if (state.backgroundType === 'solid') {
@@ -3968,7 +3915,7 @@ async function downloadFeatherFlagPDF() {
             printCtx.fillRect(0, 0, printCanvas.width, printCanvas.height);
         }
 
-        // Draw uploaded image (scaled to fit artwork area)
+        // Draw uploaded image (scaled to fill page)
         if (state.uploadedImage) {
             const imgRatio = state.uploadedImage.width / state.uploadedImage.height;
             const canvasRatio = printCanvas.width / printCanvas.height;
@@ -4001,28 +3948,35 @@ async function downloadFeatherFlagPDF() {
             printCtx.drawImage(state.logoImage, logoX, logoY, logoSize, logoSize);
         }
 
-        // Convert canvas to PNG and embed in PDF
-        const pngDataUrl = printCanvas.toDataURL('image/png');
-        const pngData = pngDataUrl.split(',')[1];
-        const pngImageBytes = Uint8Array.from(atob(pngData), c => c.charCodeAt(0));
+        // Convert canvas to JPEG (smaller file size than PNG)
+        const jpegDataUrl = printCanvas.toDataURL('image/jpeg', 0.92);
+        const jpegData = jpegDataUrl.split(',')[1];
+        const jpegImageBytes = Uint8Array.from(atob(jpegData), c => c.charCodeAt(0));
 
         // Embed the design image
-        const designImage = await pdfDoc.embedPng(pngImageBytes);
+        const designImage = await pdfDoc.embedJpg(jpegImageBytes);
 
-        // Draw the design image in the artwork area
-        // Position matches the ARTWORK HERE layer in the template
+        // Draw the design image filling entire page
         page.drawImage(designImage, {
-            x: artworkX,
-            y: artworkY,
-            width: artworkWidth,
-            height: artworkHeight,
+            x: 0,
+            y: 0,
+            width: pageWidth,
+            height: pageHeight,
         });
 
-        // Save the modified PDF
-        const modifiedPdfBytes = await pdfDoc.save();
+        // Set PDF metadata
+        pdfDoc.setTitle('Feather Flag X-Large 18ft - Print Ready');
+        pdfDoc.setAuthor('PrintPilot');
+        pdfDoc.setSubject(`Print-Ready Artwork ${pageWidthInches}" x ${pageHeightInches}"`);
+        pdfDoc.setKeywords(['print-ready', 'feather-flag', 'large-format', 'CMYK']);
+        pdfDoc.setProducer('PrintPilot Design Studio');
+        pdfDoc.setCreator('PrintPilot');
+
+        // Save the PDF
+        const pdfBytes = await pdfDoc.save();
 
         // Download
-        const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -4032,7 +3986,7 @@ async function downloadFeatherFlagPDF() {
         link.click();
         URL.revokeObjectURL(url);
 
-        showSuccess(`Feather Flag PDF Downloaded! Using official B2Sign template.`);
+        showSuccess(`PDF Downloaded! Clean print-ready file (${pageWidthInches}" x ${pageHeightInches}").`);
     } catch (error) {
         console.error('PDF generation error:', error);
         alert('Error generating PDF: ' + error.message);
