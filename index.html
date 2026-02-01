@@ -1084,7 +1084,9 @@
                         <div class="mockup-preview hidden" id="mockupPreview">
                             <div class="mockup-scene">
                                 <div class="mockup-floor"></div>
-                                <div class="mockup-banner-stand">
+                                <div class="mockup-banner-stand" id="mockupStand">
+                                    <!-- Top rail/holder -->
+                                    <div class="mockup-top-rail"></div>
                                     <!-- Banner display area -->
                                     <div class="mockup-banner-display">
                                         <canvas id="mockupCanvas" width="400" height="800"></canvas>
@@ -1102,7 +1104,13 @@
                                     </div>
                                 </div>
                             </div>
-                            <p class="mockup-note">* Mockup for visualization purposes. Actual colors may vary.</p>
+                            <div class="mockup-hint">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M5 12h14M12 5l7 7-7 7"></path>
+                                </svg>
+                                Drag to rotate
+                            </div>
+                            <p class="mockup-note">* Mockup for visualization. Actual colors may vary.</p>
                         </div>
                     </div>
 
