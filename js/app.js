@@ -3,7 +3,8 @@
 
 // ========== Configuration ==========
 const CONFIG = {
-    API_URL: 'https://printpilot-api.vercel.app'
+    API_URL: 'https://printpilot-api.vercel.app',
+    RAILWAY_API_URL: 'https://printpilot-pdf-api-production.up.railway.app'
 };
 
 // ========== Template Engine Instance ==========
@@ -4088,8 +4089,8 @@ function handleAddToCart() {
 }
 
 // ========== Universal Download PDF ==========
+// Uses Railway API with Ghostscript to create PDF with proper OCG layers
 // Preserves original PDF template structure and embeds artwork into ARTWORK HERE layer
-// Maintains CMYK color space from original template
 async function downloadPDF() {
     if (!canvas || !state.currentProduct || !state.selectedSize) {
         alert('Please complete your design first.');
@@ -4103,6 +4104,9 @@ async function downloadPDF() {
         const productId = state.currentProduct.id;
         const sizeId = state.selectedSize.id || '10ft';
         const sizeLabel = state.selectedSize.label;
+
+        // Try Railway API first for layered PDF
+        const useRailwayAPI = true; // Set to false to use local pdf-lib only
 
         console.log('Download PDF for:', productId, sizeId, sizeLabel);
 
@@ -4196,49 +4200,85 @@ async function downloadPDF() {
         const pngData = pngDataUrl.split(',')[1];
         const pngImageBytes = Uint8Array.from(atob(pngData), c => c.charCodeAt(0));
 
-        let pdfDoc;
-        let page;
         const pageWidthPt = templateWidthPt || (widthInches * 72);
         const pageHeightPt = templateHeightPt || (heightInches * 72);
 
-        // === CREATE ARTWORK PDF ===
-        // Generate clean artwork PDF with correct dimensions from template
-        // User can place this in the ARTWORK HERE layer in Illustrator
-        {
-            console.log('Creating artwork PDF with template dimensions...');
+        const productName = state.currentProduct.name.replace(/\s+/g, '_');
+        const sizeName = sizeLabel.replace(/[^a-zA-Z0-9]/g, '_');
+        const filename = `${productName}_${sizeName}_${widthInches}x${heightInches}in_LAYERED.pdf`;
 
-            pdfDoc = await PDFDocument.create();
-            page = pdfDoc.addPage([pageWidthPt, pageHeightPt]);
+        // === TRY RAILWAY API FOR LAYERED PDF ===
+        if (useRailwayAPI && pdfBytes) {
+            console.log('Using Railway API for layered PDF...');
 
-            // Embed artwork as PNG
-            const artworkImage = await pdfDoc.embedPng(pngImageBytes);
+            try {
+                // Convert canvas to blob
+                const artworkBlob = await new Promise(resolve => {
+                    printCanvas.toBlob(resolve, 'image/png');
+                });
 
-            // Draw artwork filling the entire page
-            page.drawImage(artworkImage, {
-                x: 0,
-                y: 0,
-                width: pageWidthPt,
-                height: pageHeightPt,
-            });
+                // Create form data with artwork and template
+                const formData = new FormData();
+                formData.append('artwork', artworkBlob, 'artwork.png');
+                formData.append('template', new Blob([pdfBytes], { type: 'application/pdf' }), 'template.pdf');
+                formData.append('layerName', 'ARTWORK HERE');
+                formData.append('pageWidth', pageWidthPt.toString());
+                formData.append('pageHeight', pageHeightPt.toString());
+                formData.append('artworkLayerName', 'ARTWORK HERE');
 
-            console.log('Artwork PDF created:', pageWidthPt, 'x', pageHeightPt, 'points');
-            console.log('Place this artwork in the ARTWORK HERE layer of the template');
+                console.log('Sending to Railway API:', CONFIG.RAILWAY_API_URL);
+
+                const response = await fetch(`${CONFIG.RAILWAY_API_URL}/api/merge-pdf-layers`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const pdfBlob = await response.blob();
+                    const url = URL.createObjectURL(pdfBlob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    link.click();
+                    URL.revokeObjectURL(url);
+
+                    showSuccess(`Layered PDF Downloaded! ${widthInches}" x ${heightInches}"`);
+                    return; // Success - exit function
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    console.warn('Railway API error:', errorData);
+                    console.log('Falling back to local PDF generation...');
+                }
+            } catch (railwayError) {
+                console.warn('Railway API unavailable:', railwayError.message);
+                console.log('Falling back to local PDF generation...');
+            }
         }
 
-        if (false) { // Template merging disabled - pdf-lib can't preserve OCG layers
-            // === CREATE NEW PDF (no template) ===
-            console.log('No template available, creating new PDF');
-            pdfDoc = await PDFDocument.create();
-            page = pdfDoc.addPage([pageWidthPt, pageHeightPt]);
+        // === FALLBACK: LOCAL PDF GENERATION ===
+        console.log('Using local pdf-lib for PDF generation...');
 
-            const artworkImage = await pdfDoc.embedPng(pngImageBytes);
-            page.drawImage(artworkImage, {
-                x: 0,
-                y: 0,
-                width: pageWidthPt,
-                height: pageHeightPt,
-            });
-        }
+        let pdfDoc;
+        let page;
+
+        // Create artwork PDF with correct dimensions
+        console.log('Creating artwork PDF with template dimensions...');
+        pdfDoc = await PDFDocument.create();
+        page = pdfDoc.addPage([pageWidthPt, pageHeightPt]);
+
+        // Embed artwork as PNG
+        const artworkImage = await pdfDoc.embedPng(pngImageBytes);
+
+        // Draw artwork filling the entire page
+        page.drawImage(artworkImage, {
+            x: 0,
+            y: 0,
+            width: pageWidthPt,
+            height: pageHeightPt,
+        });
+
+        console.log('Artwork PDF created:', pageWidthPt, 'x', pageHeightPt, 'points');
+        console.log('Place this artwork in the ARTWORK HERE layer of the template');
 
         console.log('Final PDF:', pageWidthPt, 'x', pageHeightPt, 'points');
 
@@ -4248,9 +4288,7 @@ async function downloadPDF() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        const productName = state.currentProduct.name.replace(/\s+/g, '_');
-        const sizeName = sizeLabel.replace(/[^a-zA-Z0-9]/g, '_');
-        link.download = `${productName}_${sizeName}_${widthInches}x${heightInches}in_ARTWORK.pdf`;
+        link.download = filename.replace('_LAYERED', '_ARTWORK');
         link.click();
         URL.revokeObjectURL(url);
 
