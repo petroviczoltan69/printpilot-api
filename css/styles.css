@@ -1446,8 +1446,10 @@ a:hover {
 }
 
 .canvas-wrapper canvas {
-    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
     display: block;
+    margin: 0 auto;
 }
 
 /* Bleed Marks Overlay */
