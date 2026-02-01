@@ -6,6 +6,12 @@ const CONFIG = {
     API_URL: 'https://printpilot-api.vercel.app'
 };
 
+// ========== Template Engine Instance ==========
+// Universal template loader for products with SVG templates
+let templateEngine = null;
+let templatePreview = null;
+let currentProductTemplate = null;
+
 // Helper function to draw AI background with contain fit + scale/position controls
 function drawAIBackground(ctx, img, canvasWidth, canvasHeight, scale, posX, posY) {
     const imgRatio = img.width / img.height;
@@ -346,6 +352,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (finalCanvas) {
         finalCtx = finalCanvas.getContext('2d');
     }
+
+    // Initialize Template Engine (for products with SVG templates)
+    initTemplateEngine();
 
     // Load cart from localStorage
     const savedCart = localStorage.getItem('printpilot_cart');
@@ -1949,6 +1958,57 @@ let featherFlagPdfBytes = null;
 let featherFlagOverlayImage = null;
 let featherFlagOverlayLoading = false;
 
+// ========== Template Engine Integration ==========
+// Initialize the template engine for products with SVG templates
+async function initTemplateEngine() {
+    if (typeof TemplateEngine === 'undefined') {
+        console.warn('TemplateEngine module not loaded, using fallback');
+        return;
+    }
+
+    try {
+        templateEngine = new TemplateEngine({
+            templatesPath: '/templates/',
+            configPath: '/config/products.json'
+        });
+
+        await templateEngine.init();
+        console.log('TemplateEngine initialized successfully');
+    } catch (error) {
+        console.warn('TemplateEngine init failed, using fallback:', error.message);
+        templateEngine = null;
+    }
+}
+
+// Load template for current product using TemplateEngine
+async function loadProductTemplate(productId, sizeId) {
+    if (!templateEngine) {
+        console.log('TemplateEngine not available, using legacy loader');
+        return null;
+    }
+
+    try {
+        const template = await templateEngine.loadTemplateAsImage(productId, sizeId);
+        if (template) {
+            console.log('Template loaded via TemplateEngine:', template.viewBox.width, 'x', template.viewBox.height);
+            currentProductTemplate = template;
+            return template;
+        }
+    } catch (error) {
+        console.warn('Failed to load template via TemplateEngine:', error.message);
+    }
+
+    return null;
+}
+
+// Check if current product has a template in TemplateEngine
+function hasProductTemplate(productId, sizeId) {
+    if (!templateEngine) return false;
+
+    const size = templateEngine.getSize(productId, sizeId || 'xl');
+    return size && size.template;
+}
+
 // Template URLs - try multiple paths for different environments
 const FEATHER_FLAG_TEMPLATE_URLS = [
     '/FeatherAngled_XL_SingleSided_PrintThru.pdf',           // Vercel production (via route)
@@ -1984,6 +2044,22 @@ async function loadFeatherFlagOverlay() {
     console.log('Loading feather flag SVG overlay...');
 
     try {
+        // Try TemplateEngine first (preferred method)
+        if (templateEngine) {
+            const template = await loadProductTemplate('feather-flag', 'xl');
+            if (template && template.image) {
+                featherFlagOverlayImage = template.image;
+                console.log('SVG overlay loaded via TemplateEngine');
+
+                // Trigger re-render
+                if (isFeatherFlagProduct() && canvas && ctx) {
+                    updateCanvas();
+                }
+                return featherFlagOverlayImage;
+            }
+        }
+
+        // Fallback: try legacy URLs
         for (const url of FEATHER_FLAG_OVERLAY_URLS) {
             console.log('Trying to fetch SVG overlay from:', url);
             try {
