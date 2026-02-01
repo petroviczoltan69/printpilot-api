@@ -1929,10 +1929,10 @@ const FEATHER_FLAG_TEMPLATE_URLS = [
     '/public/FeatherAngled_XL_SingleSided_PrintThru.pdf'     // Local development
 ];
 
-// SVG overlay for preview (smaller file size, perfect scaling)
+// SVG overlay for preview (clean version with gray mask and transparent cutout)
 const FEATHER_FLAG_OVERLAY_URLS = [
-    '/Feather_Flag_Small__9ft__PrintReady (2).svg',
-    '/public/Feather_Flag_Small__9ft__PrintReady (2).svg'
+    '/feather-flag-overlay.svg',
+    '/public/feather-flag-overlay.svg'
 ];
 
 // Feather flag shape path from SVG template (viewBox 0 0 1944 13500)
@@ -1963,16 +1963,9 @@ async function loadFeatherFlagOverlay() {
             try {
                 const response = await fetch(url);
                 if (response.ok) {
-                    let svgText = await response.text();
+                    const svgText = await response.text();
 
-                    // Modify SVG: make the mask fill transparent so artwork shows through
-                    // Change .st1 fill from #f1f2f2 (gray) to none (transparent)
-                    svgText = svgText.replace(
-                        /\.st1\s*\{[^}]*fill:\s*#f1f2f2;/,
-                        '.st1 { fill: none;'
-                    );
-
-                    // Create image from modified SVG
+                    // Create image from SVG (no modifications needed - clean SVG)
                     const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
                     const imageUrl = URL.createObjectURL(svgBlob);
 
