@@ -1516,19 +1516,23 @@ function updateCanvasSize() {
     // Calculate aspect ratio from actual dimensions
     const aspectRatio = productWidth / productHeight;
 
-    // Base size for canvas (max dimension)
-    const maxDimension = 600;
+    // For very narrow products like feather flags, ensure minimum width for quality
+    const isVeryNarrow = aspectRatio < 0.2;
 
     let canvasWidth, canvasHeight;
 
-    if (aspectRatio >= 1) {
+    if (isVeryNarrow) {
+        // Feather flags: ensure minimum width of 300px for quality
+        canvasWidth = 300;
+        canvasHeight = canvasWidth / aspectRatio;
+    } else if (aspectRatio >= 1) {
         // Landscape or square
-        canvasWidth = maxDimension;
-        canvasHeight = maxDimension / aspectRatio;
+        canvasWidth = 600;
+        canvasHeight = 600 / aspectRatio;
     } else {
         // Portrait
-        canvasHeight = maxDimension;
-        canvasWidth = maxDimension * aspectRatio;
+        canvasHeight = 600;
+        canvasWidth = 600 * aspectRatio;
     }
 
     canvas.width = canvasWidth;
@@ -1959,9 +1963,16 @@ async function loadFeatherFlagOverlay() {
             try {
                 const response = await fetch(url);
                 if (response.ok) {
-                    const svgText = await response.text();
+                    let svgText = await response.text();
 
-                    // Create image from SVG
+                    // Modify SVG: make the mask fill transparent so artwork shows through
+                    // Change .st1 fill from #f1f2f2 (gray) to none (transparent)
+                    svgText = svgText.replace(
+                        /\.st1\s*\{[^}]*fill:\s*#f1f2f2;/,
+                        '.st1 { fill: none;'
+                    );
+
+                    // Create image from modified SVG
                     const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
                     const imageUrl = URL.createObjectURL(svgBlob);
 
@@ -1986,10 +1997,10 @@ async function loadFeatherFlagOverlay() {
                 console.log('Failed to fetch SVG from:', url, e);
             }
         }
-        console.warn('Could not load feather flag PNG overlay');
+        console.warn('Could not load feather flag SVG overlay');
         return null;
     } catch (error) {
-        console.error('Error loading PNG overlay:', error);
+        console.error('Error loading SVG overlay:', error);
         return null;
     } finally {
         featherFlagOverlayLoading = false;
