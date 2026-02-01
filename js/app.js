@@ -2828,6 +2828,12 @@ let currentRotationY = 0;
 let isThreejsDragging = false;
 let previousMouseX = 0;
 
+// Zoom controls
+let targetZoom = 4.2;
+let currentZoom = 4.2;
+const MIN_ZOOM = 3.0;
+const MAX_ZOOM = 6.0;
+
 function initThreeJsMockup() {
     const container = document.getElementById('threejs-container');
     if (!container || threejsInitialized) return;
@@ -2843,12 +2849,12 @@ function initThreeJsMockup() {
 
     // Scene
     threejsScene = new THREE.Scene();
-    threejsScene.background = new THREE.Color(0xf0f0f0);
+    threejsScene.background = new THREE.Color(0xf5f5f5);
 
-    // Camera
-    threejsCamera = new THREE.PerspectiveCamera(35, width / height, 0.1, 1000);
-    threejsCamera.position.set(0, 1.5, 6);
-    threejsCamera.lookAt(0, 1.2, 0);
+    // Camera - positioned for larger model view
+    threejsCamera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
+    threejsCamera.position.set(0, 1.4, targetZoom);
+    threejsCamera.lookAt(0, 1.3, 0);
 
     // Renderer
     threejsRenderer = new THREE.WebGLRenderer({ antialias: true });
@@ -2858,24 +2864,30 @@ function initThreeJsMockup() {
     threejsRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(threejsRenderer.domElement);
 
-    // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    // Lights - soft studio lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     threejsScene.add(ambientLight);
 
-    const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    mainLight.position.set(5, 10, 7);
+    const mainLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    mainLight.position.set(3, 8, 5);
     mainLight.castShadow = true;
-    mainLight.shadow.mapSize.width = 1024;
-    mainLight.shadow.mapSize.height = 1024;
+    mainLight.shadow.mapSize.width = 2048;
+    mainLight.shadow.mapSize.height = 2048;
+    mainLight.shadow.camera.near = 0.5;
+    mainLight.shadow.camera.far = 50;
     threejsScene.add(mainLight);
 
     const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
-    fillLight.position.set(-5, 5, -5);
+    fillLight.position.set(-3, 4, -3);
     threejsScene.add(fillLight);
 
+    const rimLight = new THREE.DirectionalLight(0xffffff, 0.2);
+    rimLight.position.set(0, 3, -5);
+    threejsScene.add(rimLight);
+
     // Ground plane for shadow
-    const groundGeometry = new THREE.PlaneGeometry(10, 10);
-    const groundMaterial = new THREE.ShadowMaterial({ opacity: 0.15 });
+    const groundGeometry = new THREE.PlaneGeometry(15, 15);
+    const groundMaterial = new THREE.ShadowMaterial({ opacity: 0.12 });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = 0;
@@ -2885,86 +2897,132 @@ function initThreeJsMockup() {
     // Create banner stand group
     bannerStand = new THREE.Group();
 
-    // Materials
-    const metalMaterial = new THREE.MeshStandardMaterial({
-        color: 0xcccccc,
+    // Materials - realistic aluminum
+    const silverMaterial = new THREE.MeshStandardMaterial({
+        color: 0xd8d8d8,
+        metalness: 0.9,
+        roughness: 0.2
+    });
+
+    const brushedMetal = new THREE.MeshStandardMaterial({
+        color: 0xc0c0c0,
+        metalness: 0.85,
+        roughness: 0.35
+    });
+
+    const darkEndcap = new THREE.MeshStandardMaterial({
+        color: 0x888888,
         metalness: 0.8,
         roughness: 0.3
     });
 
-    const darkMetalMaterial = new THREE.MeshStandardMaterial({
-        color: 0x555555,
-        metalness: 0.7,
-        roughness: 0.4
-    });
+    // ===== CYLINDRICAL BASE (Cassette) =====
+    const baseRadius = 0.055;
+    const baseLength = 1.0;
 
-    // Base cassette
-    const baseGeometry = new THREE.BoxGeometry(0.9, 0.12, 0.15);
-    const baseMesh = new THREE.Mesh(baseGeometry, darkMetalMaterial);
-    baseMesh.position.y = 0.06;
-    baseMesh.castShadow = true;
-    bannerStand.add(baseMesh);
+    // Main cylinder body
+    const baseCylinderGeometry = new THREE.CylinderGeometry(baseRadius, baseRadius, baseLength, 32);
+    const baseCylinder = new THREE.Mesh(baseCylinderGeometry, brushedMetal);
+    baseCylinder.rotation.z = Math.PI / 2;
+    baseCylinder.position.y = baseRadius;
+    baseCylinder.castShadow = true;
+    bannerStand.add(baseCylinder);
 
-    // Base top (silver lip)
-    const baseTopGeometry = new THREE.BoxGeometry(0.92, 0.03, 0.16);
-    const baseTopMesh = new THREE.Mesh(baseTopGeometry, metalMaterial);
-    baseTopMesh.position.y = 0.135;
-    baseMesh.castShadow = true;
-    bannerStand.add(baseTopMesh);
+    // End caps (circular)
+    const endCapGeometry = new THREE.CylinderGeometry(baseRadius + 0.008, baseRadius + 0.008, 0.015, 32);
 
-    // Feet
-    const footGeometry = new THREE.BoxGeometry(0.4, 0.025, 0.05);
-    const leftFoot = new THREE.Mesh(footGeometry, darkMetalMaterial);
-    leftFoot.position.set(-0.25, 0.012, 0.2);
-    leftFoot.rotation.y = 0.4;
+    const leftEndCap = new THREE.Mesh(endCapGeometry, darkEndcap);
+    leftEndCap.rotation.z = Math.PI / 2;
+    leftEndCap.position.set(-baseLength / 2 - 0.007, baseRadius, 0);
+    leftEndCap.castShadow = true;
+    bannerStand.add(leftEndCap);
+
+    const rightEndCap = new THREE.Mesh(endCapGeometry, darkEndcap);
+    rightEndCap.rotation.z = Math.PI / 2;
+    rightEndCap.position.set(baseLength / 2 + 0.007, baseRadius, 0);
+    rightEndCap.castShadow = true;
+    bannerStand.add(rightEndCap);
+
+    // Slot on top of base (where banner comes out)
+    const slotGeometry = new THREE.BoxGeometry(baseLength - 0.1, 0.008, 0.015);
+    const slotMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.5, roughness: 0.5 });
+    const slot = new THREE.Mesh(slotGeometry, slotMaterial);
+    slot.position.y = baseRadius * 2 - 0.002;
+    bannerStand.add(slot);
+
+    // ===== FEET (angled supports) =====
+    const footLength = 0.45;
+    const footWidth = 0.04;
+    const footHeight = 0.012;
+    const footGeometry = new THREE.BoxGeometry(footLength, footHeight, footWidth);
+
+    // Round the edges slightly with bevel
+    const leftFoot = new THREE.Mesh(footGeometry, brushedMetal);
+    leftFoot.position.set(-0.15, footHeight / 2, 0.22);
+    leftFoot.rotation.y = Math.PI * 0.12;
     leftFoot.castShadow = true;
     bannerStand.add(leftFoot);
 
-    const rightFoot = new THREE.Mesh(footGeometry, darkMetalMaterial);
-    rightFoot.position.set(0.25, 0.012, 0.2);
-    rightFoot.rotation.y = -0.4;
+    const rightFoot = new THREE.Mesh(footGeometry, brushedMetal);
+    rightFoot.position.set(0.15, footHeight / 2, 0.22);
+    rightFoot.rotation.y = -Math.PI * 0.12;
     rightFoot.castShadow = true;
     bannerStand.add(rightFoot);
 
-    // Pole
-    const poleGeometry = new THREE.CylinderGeometry(0.015, 0.015, 0.1, 16);
-    const poleMesh = new THREE.Mesh(poleGeometry, metalMaterial);
-    poleMesh.position.y = 0.2;
-    bannerStand.add(poleMesh);
+    // Foot end caps (rounded ends)
+    const footCapGeometry = new THREE.CylinderGeometry(footWidth / 2, footWidth / 2, footHeight, 16);
 
-    // Banner - will be textured with design
-    const bannerWidth = 0.8;
-    const bannerHeight = 2.2;
+    const leftFootCap = new THREE.Mesh(footCapGeometry, brushedMetal);
+    leftFootCap.position.set(-0.15 - Math.cos(Math.PI * 0.12) * footLength / 2, footHeight / 2, 0.22 + Math.sin(Math.PI * 0.12) * footLength / 2);
+    bannerStand.add(leftFootCap);
+
+    const rightFootCap = new THREE.Mesh(footCapGeometry, brushedMetal);
+    rightFootCap.position.set(0.15 + Math.cos(Math.PI * 0.12) * footLength / 2, footHeight / 2, 0.22 + Math.sin(Math.PI * 0.12) * footLength / 2);
+    bannerStand.add(rightFootCap);
+
+    // ===== BANNER =====
+    const bannerWidth = 0.85;
+    const bannerHeight = 2.4;
     const bannerGeometry = new THREE.PlaneGeometry(bannerWidth, bannerHeight);
     const bannerMaterial = new THREE.MeshStandardMaterial({
         color: 0xffffff,
         side: THREE.DoubleSide,
-        roughness: 0.8,
+        roughness: 0.7,
         metalness: 0.0
     });
     bannerMesh = new THREE.Mesh(bannerGeometry, bannerMaterial);
-    bannerMesh.position.y = 0.25 + bannerHeight / 2;
+    // Position banner so it starts from the slot (no gap)
+    bannerMesh.position.y = baseRadius * 2 + bannerHeight / 2;
     bannerMesh.castShadow = true;
     bannerStand.add(bannerMesh);
 
-    // Top rail
-    const topRailGeometry = new THREE.BoxGeometry(bannerWidth + 0.05, 0.03, 0.02);
-    const topRailMesh = new THREE.Mesh(topRailGeometry, metalMaterial);
-    topRailMesh.position.y = 0.25 + bannerHeight + 0.015;
-    topRailMesh.castShadow = true;
-    bannerStand.add(topRailMesh);
+    // ===== TOP RAIL =====
+    const topRailRadius = 0.012;
+    const topRailLength = bannerWidth + 0.03;
+    const topRailGeometry = new THREE.CylinderGeometry(topRailRadius, topRailRadius, topRailLength, 16);
+    const topRail = new THREE.Mesh(topRailGeometry, silverMaterial);
+    topRail.rotation.z = Math.PI / 2;
+    topRail.position.y = baseRadius * 2 + bannerHeight + topRailRadius;
+    topRail.castShadow = true;
+    bannerStand.add(topRail);
 
-    // End caps
-    const capGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.04, 16);
-    const leftCap = new THREE.Mesh(capGeometry, metalMaterial);
-    leftCap.rotation.z = Math.PI / 2;
-    leftCap.position.set(-(bannerWidth / 2 + 0.03), 0.25 + bannerHeight + 0.015, 0);
-    bannerStand.add(leftCap);
+    // Top rail end caps
+    const topCapGeometry = new THREE.SphereGeometry(topRailRadius + 0.003, 16, 16);
 
-    const rightCap = new THREE.Mesh(capGeometry, metalMaterial);
-    rightCap.rotation.z = Math.PI / 2;
-    rightCap.position.set(bannerWidth / 2 + 0.03, 0.25 + bannerHeight + 0.015, 0);
-    bannerStand.add(rightCap);
+    const topLeftCap = new THREE.Mesh(topCapGeometry, silverMaterial);
+    topLeftCap.position.set(-topRailLength / 2, baseRadius * 2 + bannerHeight + topRailRadius, 0);
+    bannerStand.add(topLeftCap);
+
+    const topRightCap = new THREE.Mesh(topCapGeometry, silverMaterial);
+    topRightCap.position.set(topRailLength / 2, baseRadius * 2 + bannerHeight + topRailRadius, 0);
+    bannerStand.add(topRightCap);
+
+    // ===== CENTER POLE (support) =====
+    const poleGeometry = new THREE.CylinderGeometry(0.008, 0.008, 0.05, 12);
+    const poleMesh = new THREE.Mesh(poleGeometry, silverMaterial);
+    poleMesh.position.y = baseRadius * 2 + bannerHeight + topRailRadius + 0.025;
+    poleMesh.position.z = -0.01;
+    bannerStand.add(poleMesh);
 
     threejsScene.add(bannerStand);
 
@@ -2975,6 +3033,9 @@ function initThreeJsMockup() {
     document.addEventListener('mouseup', onThreejsMouseUp);
     document.addEventListener('touchmove', onThreejsTouchMove, { passive: false });
     document.addEventListener('touchend', onThreejsTouchEnd);
+
+    // Zoom with mouse wheel
+    container.addEventListener('wheel', onThreejsWheel, { passive: false });
 
     // Handle resize
     window.addEventListener('resize', onThreejsResize);
@@ -2994,9 +3055,17 @@ function updateBannerTexture() {
     // Create texture from design canvas
     const texture = new THREE.CanvasTexture(canvas);
     texture.needsUpdate = true;
+    texture.anisotropy = threejsRenderer ? threejsRenderer.capabilities.getMaxAnisotropy() : 1;
 
     bannerMesh.material.map = texture;
     bannerMesh.material.needsUpdate = true;
+}
+
+// Zoom handler
+function onThreejsWheel(e) {
+    e.preventDefault();
+    targetZoom += e.deltaY * 0.005;
+    targetZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, targetZoom));
 }
 
 function animateThreejs() {
@@ -3008,6 +3077,12 @@ function animateThreejs() {
     currentRotationY += (targetRotationY - currentRotationY) * 0.1;
     if (bannerStand) {
         bannerStand.rotation.y = currentRotationY;
+    }
+
+    // Smooth zoom
+    currentZoom += (targetZoom - currentZoom) * 0.1;
+    if (threejsCamera) {
+        threejsCamera.position.z = currentZoom;
     }
 
     threejsRenderer.render(threejsScene, threejsCamera);
