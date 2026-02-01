@@ -1571,6 +1571,177 @@ a:hover {
     display: block;
 }
 
+/* Preview View Toggle */
+.preview-view-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.view-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-white);
+    color: var(--text-medium);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.view-toggle-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.view-toggle-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.view-toggle-btn.active svg {
+    stroke: white;
+}
+
+/* 3D Mockup Preview */
+.mockup-preview {
+    background: linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 100%);
+    border-radius: var(--radius-md);
+    padding: 40px 20px 20px;
+    min-height: 500px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.mockup-scene {
+    position: relative;
+    perspective: 1000px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.mockup-floor {
+    position: absolute;
+    bottom: 0;
+    width: 300px;
+    height: 60px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.02) 100%);
+    border-radius: 50%;
+    transform: rotateX(60deg);
+    z-index: 1;
+}
+
+.mockup-banner-stand {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform: rotateY(-8deg) rotateX(2deg);
+    transform-style: preserve-3d;
+    z-index: 2;
+}
+
+/* Banner Display */
+.mockup-banner-display {
+    position: relative;
+    width: 160px;
+    background: white;
+    border-radius: 2px;
+    box-shadow:
+        4px 4px 20px rgba(0,0,0,0.15),
+        -2px 0 10px rgba(0,0,0,0.05),
+        inset 0 0 0 1px rgba(0,0,0,0.05);
+    overflow: hidden;
+    transform-origin: bottom center;
+}
+
+.mockup-banner-display canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Pole connecting banner to base */
+.mockup-pole {
+    width: 6px;
+    height: 20px;
+    background: linear-gradient(90deg, #888 0%, #ccc 50%, #888 100%);
+    border-radius: 1px;
+}
+
+/* Base Unit */
+.mockup-base {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.mockup-base-top {
+    width: 140px;
+    height: 8px;
+    background: linear-gradient(180deg, #666 0%, #444 100%);
+    border-radius: 2px 2px 0 0;
+}
+
+.mockup-base-body {
+    width: 130px;
+    height: 16px;
+    background: linear-gradient(180deg, #555 0%, #333 50%, #222 100%);
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+/* Feet */
+.mockup-feet {
+    display: flex;
+    justify-content: space-between;
+    width: 200px;
+    margin-top: 4px;
+}
+
+.mockup-foot {
+    width: 80px;
+    height: 6px;
+    background: linear-gradient(180deg, #444 0%, #222 100%);
+    border-radius: 3px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.mockup-foot.left {
+    transform: rotate(-15deg);
+    transform-origin: right center;
+}
+
+.mockup-foot.right {
+    transform: rotate(15deg);
+    transform-origin: left center;
+}
+
+.mockup-note {
+    margin-top: 20px;
+    font-size: 0.75rem;
+    color: var(--text-light);
+    text-align: center;
+}
+
+/* Mockup size variations */
+.mockup-preview[data-size="small"] .mockup-banner-display {
+    width: 120px;
+}
+
+.mockup-preview[data-size="large"] .mockup-banner-display {
+    width: 200px;
+}
+
 .review-summary {
     background: var(--bg-white);
     border: 1px solid var(--border);
