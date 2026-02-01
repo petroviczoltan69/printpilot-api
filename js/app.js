@@ -123,9 +123,94 @@ const PRODUCTS = {
         ],
         canvasRatio: 0.8
     },
+    // ========== Table Cloths Category ==========
+    'stretch-table-throw': {
+        name: 'Stretch Table Throw',
+        category: 'tablecloths',
+        mockupType: 'stretch-table',
+        sizes: [
+            { label: '4ft Table', width: 4, height: 2.5, price: 89.99 },
+            { label: '6ft Table', width: 6, height: 2.5, price: 109.99 },
+            { label: '8ft Table', width: 8, height: 2.5, price: 139.99 }
+        ],
+        options: [
+            { id: 'open-back', label: 'Open Back', price: 0, default: true },
+            { id: 'closed-back', label: 'Closed Back', price: 20 }
+        ],
+        canvasRatio: 2.4,
+        description: 'Form-fitting stretch fabric that hugs the table'
+    },
+    'table-throw': {
+        name: 'Table Throw',
+        category: 'tablecloths',
+        mockupType: 'table-throw',
+        sizes: [
+            { label: '4ft Table', width: 4, height: 2.5, price: 69.99 },
+            { label: '6ft Table', width: 6, height: 2.5, price: 89.99 },
+            { label: '8ft Table', width: 8, height: 2.5, price: 119.99 }
+        ],
+        options: [
+            { id: '3-sided', label: '3-Sided (Open Back)', price: 0, default: true },
+            { id: '4-sided', label: '4-Sided (Full Coverage)', price: 25 }
+        ],
+        canvasRatio: 2.4,
+        description: 'Classic draped tablecloth with full print'
+    },
+    'table-runner': {
+        name: 'Table Runner',
+        category: 'tablecloths',
+        mockupType: 'table-runner',
+        sizes: [
+            { label: '24" x 72" (6ft)', width: 24, height: 72, price: 49.99 },
+            { label: '24" x 96" (8ft)', width: 24, height: 96, price: 59.99 },
+            { label: '30" x 72" (6ft)', width: 30, height: 72, price: 54.99 },
+            { label: '30" x 96" (8ft)', width: 30, height: 96, price: 64.99 }
+        ],
+        options: [
+            { id: 'standard', label: 'Standard Fabric', price: 0, default: true },
+            { id: 'premium', label: 'Premium Fabric', price: 15 }
+        ],
+        canvasRatio: 3,
+        description: 'Accent runner for tables with solid color base'
+    },
+    'solid-table-throw': {
+        name: 'Solid Color Table Throw',
+        category: 'tablecloths',
+        mockupType: 'solid-table',
+        sizes: [
+            { label: '4ft Table', width: 4, height: 2.5, price: 49.99 },
+            { label: '6ft Table', width: 6, height: 2.5, price: 59.99 },
+            { label: '8ft Table', width: 8, height: 2.5, price: 79.99 }
+        ],
+        options: [
+            { id: 'polyester', label: 'Polyester', price: 0, default: true },
+            { id: 'spandex', label: 'Spandex Stretch', price: 20 }
+        ],
+        solidColors: ['#000000', '#ffffff', '#1a365d', '#2c5282', '#2d3748', '#742a2a', '#22543d', '#744210'],
+        canvasRatio: 2.4,
+        description: 'Simple solid color tablecloth - no custom print'
+    },
+    'round-table-throw': {
+        name: 'Round Table Throw',
+        category: 'tablecloths',
+        mockupType: 'round-table',
+        sizes: [
+            { label: '48" Round (4ft)', width: 48, height: 48, price: 99.99 },
+            { label: '60" Round (5ft)', width: 60, height: 60, price: 119.99 },
+            { label: '72" Round (6ft)', width: 72, height: 72, price: 149.99 }
+        ],
+        options: [
+            { id: 'floor-length', label: 'Floor Length', price: 0, default: true },
+            { id: 'lap-length', label: 'Lap Length', price: -20 }
+        ],
+        canvasRatio: 1,
+        description: 'Full print tablecloth for round tables'
+    },
+    // Legacy table-cover redirect to stretch-table-throw
     'table-cover': {
         name: 'Table Covers',
-        category: 'tradeshow',
+        category: 'tablecloths',
+        mockupType: 'table-throw',
         sizes: [
             { label: '4ft Table', width: 4, height: 2.5, price: 69.99 },
             { label: '6ft Table', width: 6, height: 2.5, price: 89.99 },
@@ -1226,18 +1311,52 @@ function populateAdditionalOptions() {
     const container = document.getElementById('additionalOptions');
     if (!container || !state.currentProduct) return;
 
-    if (state.currentProduct.options.length === 0) {
+    let html = '';
+
+    // Add solid color selector for solid-table-throw product
+    if (state.currentProduct.solidColors) {
+        const colors = state.currentProduct.solidColors;
+        state.solidTableColor = state.solidTableColor || colors[0];
+        html += `
+            <div class="solid-color-selector">
+                <h4 class="options-subtitle">Select Color</h4>
+                <div class="color-swatches">
+                    ${colors.map((color, idx) => `
+                        <button class="color-swatch ${state.solidTableColor === color ? 'selected' : ''}"
+                                data-color="${color}"
+                                style="background-color: ${color}; ${color === '#ffffff' ? 'border: 2px solid #ddd;' : ''}"
+                                title="${getColorName(color)}">
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    if (state.currentProduct.options.length === 0 && !state.currentProduct.solidColors) {
         container.innerHTML = '<p class="no-options">No additional options available</p>';
         return;
     }
 
-    container.innerHTML = state.currentProduct.options.map(option => `
+    html += state.currentProduct.options.map(option => `
         <label class="option-checkbox ${state.selectedOptions.includes(option.id) ? 'selected' : ''}">
             <input type="checkbox" value="${option.id}" ${state.selectedOptions.includes(option.id) ? 'checked' : ''}>
             <span class="option-label">${option.label}</span>
-            <span class="option-price">${option.price > 0 ? '+$' + option.price.toFixed(2) : 'Included'}</span>
+            <span class="option-price">${option.price > 0 ? '+$' + option.price.toFixed(2) : option.price < 0 ? '-$' + Math.abs(option.price).toFixed(2) : 'Included'}</span>
         </label>
     `).join('');
+
+    container.innerHTML = html;
+
+    // Add color swatch listeners
+    container.querySelectorAll('.color-swatch').forEach(swatch => {
+        swatch.addEventListener('click', (e) => {
+            state.solidTableColor = e.target.dataset.color;
+            container.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+            e.target.classList.add('selected');
+            updateCanvas();
+        });
+    });
 
     container.querySelectorAll('input[type="checkbox"]').forEach(input => {
         input.addEventListener('change', (e) => {
@@ -1252,6 +1371,21 @@ function populateAdditionalOptions() {
             updatePriceSummary();
         });
     });
+}
+
+// Helper function to get color name from hex
+function getColorName(hex) {
+    const colorNames = {
+        '#000000': 'Black',
+        '#ffffff': 'White',
+        '#1a365d': 'Navy Blue',
+        '#2c5282': 'Royal Blue',
+        '#2d3748': 'Charcoal',
+        '#742a2a': 'Burgundy',
+        '#22543d': 'Forest Green',
+        '#744210': 'Brown'
+    };
+    return colorNames[hex.toLowerCase()] || hex;
 }
 
 // ========== Update Price Summary ==========
@@ -1693,7 +1827,10 @@ function updateCanvas() {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    if (state.designType === 'photo') {
+    // Check if this is a table cloth product that needs mockup preview
+    if (isTableClothProduct() && (state.designType === 'photo' || state.designType === 'logo')) {
+        drawTableMockup();
+    } else if (state.designType === 'photo') {
         drawPhotoMode();
     } else if (state.designType === 'logo') {
         drawLogoMode();
@@ -1985,6 +2122,614 @@ function drawLogoMode() {
     }
 
     ctx.restore();
+}
+
+// ========== Table Cloth Mockup Rendering ==========
+// Check if current product is a table cloth that needs mockup preview
+function isTableClothProduct() {
+    return state.currentProduct && state.currentProduct.mockupType;
+}
+
+// Draw mockup preview for table cloth products
+function drawTableMockup() {
+    const mockupType = state.currentProduct.mockupType;
+
+    // First draw the design onto an offscreen canvas
+    const designCanvas = document.createElement('canvas');
+    designCanvas.width = canvas.width;
+    designCanvas.height = canvas.height;
+    const designCtx = designCanvas.getContext('2d');
+
+    // Draw design based on mode
+    if (state.designType === 'photo') {
+        drawDesignToContext(designCtx, designCanvas.width, designCanvas.height);
+    } else if (state.designType === 'logo') {
+        drawLogoDesignToContext(designCtx, designCanvas.width, designCanvas.height);
+    }
+
+    // Clear main canvas and draw mockup scene
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw based on mockup type
+    switch(mockupType) {
+        case 'stretch-table':
+            drawStretchTableMockup(designCanvas);
+            break;
+        case 'table-throw':
+            drawTableThrowMockup(designCanvas);
+            break;
+        case 'table-runner':
+            drawTableRunnerMockup(designCanvas);
+            break;
+        case 'solid-table':
+            drawSolidTableMockup();
+            break;
+        case 'round-table':
+            drawRoundTableMockup(designCanvas);
+            break;
+        default:
+            drawTableThrowMockup(designCanvas);
+    }
+}
+
+// Helper: draw photo design to any context
+function drawDesignToContext(targetCtx, w, h) {
+    // Draw background
+    if (state.backgroundType === 'solid') {
+        const color = document.getElementById('bgColor')?.value || '#ffffff';
+        targetCtx.fillStyle = color;
+        targetCtx.fillRect(0, 0, w, h);
+    } else if (state.backgroundType === 'gradient') {
+        const color1 = document.getElementById('gradColor1')?.value || '#667eea';
+        const color2 = document.getElementById('gradColor2')?.value || '#764ba2';
+        let gradient;
+        switch (state.gradDirection) {
+            case 'horizontal':
+                gradient = targetCtx.createLinearGradient(0, 0, w, 0);
+                break;
+            case 'vertical':
+                gradient = targetCtx.createLinearGradient(0, 0, 0, h);
+                break;
+            case 'diagonal':
+                gradient = targetCtx.createLinearGradient(0, 0, w, h);
+                break;
+            case 'radial':
+                gradient = targetCtx.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.max(w, h)/2);
+                break;
+            default:
+                gradient = targetCtx.createLinearGradient(0, 0, w, 0);
+        }
+        gradient.addColorStop(0, color1);
+        gradient.addColorStop(1, color2);
+        targetCtx.fillStyle = gradient;
+        targetCtx.fillRect(0, 0, w, h);
+    } else if (state.backgroundType === 'ai' && state.backgroundImage) {
+        targetCtx.drawImage(state.backgroundImage, 0, 0, w, h);
+    }
+
+    // Draw uploaded image
+    if (state.uploadedImage) {
+        let x, y, width, height;
+        const imgRatio = state.uploadedImage.width / state.uploadedImage.height;
+        const canvasRatio = w / h;
+
+        if (state.photoFitMode === 'cover') {
+            if (imgRatio > canvasRatio) {
+                height = h * (state.photoImageScale / 100);
+                width = height * imgRatio;
+            } else {
+                width = w * (state.photoImageScale / 100);
+                height = width / imgRatio;
+            }
+            x = (w - width) * state.photoImageX;
+            y = (h - height) * state.photoImageY;
+        } else if (state.photoFitMode === 'contain') {
+            if (imgRatio > canvasRatio) {
+                width = w * 0.9 * (state.photoImageScale / 100);
+                height = width / imgRatio;
+            } else {
+                height = h * 0.9 * (state.photoImageScale / 100);
+                width = height * imgRatio;
+            }
+            x = (w - width) / 2 + (state.photoImageX - 0.5) * w * 0.5;
+            y = (h - height) / 2 + (state.photoImageY - 0.5) * h * 0.5;
+        } else {
+            width = state.uploadedImage.width * (state.photoImageScale / 100) * 0.5;
+            height = state.uploadedImage.height * (state.photoImageScale / 100) * 0.5;
+            x = w * state.photoImageX - width / 2;
+            y = h * state.photoImageY - height / 2;
+        }
+        targetCtx.drawImage(state.uploadedImage, x, y, width, height);
+    }
+
+    // Draw text layers
+    state.photoTextLayers.forEach(layer => {
+        if (!layer.enabled || !layer.text.trim()) return;
+        targetCtx.font = `bold ${layer.size}px ${layer.font}`;
+        targetCtx.fillStyle = layer.color;
+        targetCtx.textAlign = 'center';
+        targetCtx.textBaseline = 'middle';
+        targetCtx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        targetCtx.shadowBlur = 8;
+        targetCtx.fillText(layer.text, w * layer.x, h * layer.y);
+        targetCtx.shadowColor = 'transparent';
+    });
+}
+
+// Helper: draw logo design to any context
+function drawLogoDesignToContext(targetCtx, w, h) {
+    targetCtx.fillStyle = state.patternBgColor;
+    targetCtx.fillRect(0, 0, w, h);
+
+    if (!state.logoImage) return;
+
+    const logoWidth = state.logoSize;
+    const logoHeight = (state.logoImage.height / state.logoImage.width) * logoWidth;
+    const spacing = state.patternSpacing;
+
+    if (state.patternStyle === 'single') {
+        const singleWidth = state.singleLogoSize;
+        const singleHeight = (state.logoImage.height / state.logoImage.width) * singleWidth;
+        const x = w * state.singleLogoX - singleWidth / 2;
+        const y = h * state.singleLogoY - singleHeight / 2;
+        targetCtx.drawImage(state.logoImage, x, y, singleWidth, singleHeight);
+    } else if (state.patternStyle === 'diagonal') {
+        let rowIndex = 0;
+        for (let y = -logoHeight; y < h + logoHeight; y += logoHeight + spacing) {
+            const rowOffset = rowIndex % 2 === 0 ? 0 : (logoWidth + spacing) / 2;
+            for (let x = -logoWidth + rowOffset; x < w + logoWidth; x += logoWidth + spacing) {
+                targetCtx.drawImage(state.logoImage, x, y, logoWidth, logoHeight);
+            }
+            rowIndex++;
+        }
+    } else if (state.patternStyle === 'grid') {
+        for (let y = 0; y < h + logoHeight; y += logoHeight + spacing) {
+            for (let x = 0; x < w + logoWidth; x += logoWidth + spacing) {
+                targetCtx.drawImage(state.logoImage, x, y, logoWidth, logoHeight);
+            }
+        }
+    } else if (state.patternStyle === 'offset') {
+        let rowIndex = 0;
+        for (let y = 0; y < h + logoHeight; y += logoHeight + spacing) {
+            const rowOffset = rowIndex % 2 === 0 ? 0 : (logoWidth + spacing) / 2;
+            for (let x = rowOffset; x < w + logoWidth; x += logoWidth + spacing) {
+                targetCtx.drawImage(state.logoImage, x, y, logoWidth, logoHeight);
+            }
+            rowIndex++;
+        }
+    }
+}
+
+// Stretch Table Throw - form-fitting, shows top and front
+function drawStretchTableMockup(designCanvas) {
+    const padding = 40;
+    const tableWidth = canvas.width - padding * 2;
+    const tableHeight = canvas.height * 0.35;
+    const topHeight = canvas.height * 0.25;
+    const frontHeight = canvas.height * 0.45;
+
+    // Draw background gradient (floor/wall)
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    bgGrad.addColorStop(0, '#e8e8e8');
+    bgGrad.addColorStop(1, '#d0d0d0');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Table dimensions
+    const topY = canvas.height * 0.15;
+    const perspectiveOffset = tableWidth * 0.08;
+
+    // Draw table top (perspective trapezoid)
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(padding + perspectiveOffset, topY);
+    ctx.lineTo(canvas.width - padding - perspectiveOffset, topY);
+    ctx.lineTo(canvas.width - padding, topY + topHeight);
+    ctx.lineTo(padding, topY + topHeight);
+    ctx.closePath();
+    ctx.clip();
+
+    // Draw design on top with perspective transform approximation
+    ctx.drawImage(designCanvas, padding, topY - perspectiveOffset * 0.5, tableWidth, topHeight + perspectiveOffset);
+
+    // Add lighting effect
+    const topGrad = ctx.createLinearGradient(0, topY, 0, topY + topHeight);
+    topGrad.addColorStop(0, 'rgba(255,255,255,0.2)');
+    topGrad.addColorStop(1, 'rgba(0,0,0,0.1)');
+    ctx.fillStyle = topGrad;
+    ctx.fill();
+    ctx.restore();
+
+    // Draw front panel
+    ctx.save();
+    const frontY = topY + topHeight;
+    ctx.beginPath();
+    ctx.moveTo(padding, frontY);
+    ctx.lineTo(canvas.width - padding, frontY);
+    ctx.lineTo(canvas.width - padding - perspectiveOffset * 0.3, frontY + frontHeight);
+    ctx.lineTo(padding + perspectiveOffset * 0.3, frontY + frontHeight);
+    ctx.closePath();
+    ctx.clip();
+
+    ctx.drawImage(designCanvas, padding, frontY, tableWidth, frontHeight);
+
+    // Add shadow/depth
+    const frontGrad = ctx.createLinearGradient(0, frontY, 0, frontY + frontHeight);
+    frontGrad.addColorStop(0, 'rgba(0,0,0,0.05)');
+    frontGrad.addColorStop(0.5, 'rgba(0,0,0,0)');
+    frontGrad.addColorStop(1, 'rgba(0,0,0,0.15)');
+    ctx.fillStyle = frontGrad;
+    ctx.fill();
+    ctx.restore();
+
+    // Add edge highlight
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(padding, topY + topHeight);
+    ctx.lineTo(canvas.width - padding, topY + topHeight);
+    ctx.stroke();
+
+    // Drop shadow under table
+    ctx.fillStyle = 'rgba(0,0,0,0.1)';
+    ctx.fillRect(padding + 20, topY + topHeight + frontHeight + 5, tableWidth - 40, 15);
+}
+
+// Table Throw - draped look with visible sides
+function drawTableThrowMockup(designCanvas) {
+    const padding = 50;
+    const topY = canvas.height * 0.18;
+    const topHeight = canvas.height * 0.22;
+    const frontHeight = canvas.height * 0.5;
+    const tableWidth = canvas.width - padding * 2;
+    const perspectiveOffset = tableWidth * 0.1;
+
+    // Background
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    bgGrad.addColorStop(0, '#f5f5f5');
+    bgGrad.addColorStop(1, '#e0e0e0');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw left side drape
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(padding, topY + topHeight);
+    ctx.lineTo(padding + perspectiveOffset * 1.5, topY);
+    ctx.lineTo(padding, topY + topHeight * 0.3);
+    ctx.quadraticCurveTo(padding - 20, topY + topHeight + frontHeight * 0.5, padding + 10, topY + topHeight + frontHeight);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(designCanvas, padding - tableWidth * 0.3, topY, tableWidth * 0.5, frontHeight + topHeight);
+    const leftGrad = ctx.createLinearGradient(padding, 0, padding + perspectiveOffset, 0);
+    leftGrad.addColorStop(0, 'rgba(0,0,0,0.3)');
+    leftGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = leftGrad;
+    ctx.fill();
+    ctx.restore();
+
+    // Draw table top
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(padding + perspectiveOffset, topY);
+    ctx.lineTo(canvas.width - padding - perspectiveOffset, topY);
+    ctx.lineTo(canvas.width - padding, topY + topHeight);
+    ctx.lineTo(padding, topY + topHeight);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(designCanvas, padding, topY - 20, tableWidth, topHeight + 40);
+    const topGrad = ctx.createLinearGradient(0, topY, 0, topY + topHeight);
+    topGrad.addColorStop(0, 'rgba(255,255,255,0.15)');
+    topGrad.addColorStop(1, 'rgba(0,0,0,0.05)');
+    ctx.fillStyle = topGrad;
+    ctx.fill();
+    ctx.restore();
+
+    // Draw front drape with wave effect
+    ctx.save();
+    const frontY = topY + topHeight;
+    ctx.beginPath();
+    ctx.moveTo(padding, frontY);
+    ctx.lineTo(canvas.width - padding, frontY);
+    // Wavy bottom edge
+    const waveCount = 5;
+    const waveHeight = 8;
+    for (let i = waveCount; i >= 0; i--) {
+        const x = padding + (tableWidth / waveCount) * i;
+        const y = frontY + frontHeight + (i % 2 === 0 ? waveHeight : 0);
+        if (i === waveCount) {
+            ctx.lineTo(x, y);
+        } else {
+            ctx.quadraticCurveTo(x + tableWidth / waveCount / 2, frontY + frontHeight + (i % 2 === 0 ? 0 : waveHeight), x, y);
+        }
+    }
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(designCanvas, padding, frontY - 20, tableWidth, frontHeight + 40);
+
+    // Add fabric fold shadows
+    for (let i = 1; i < waveCount; i++) {
+        const x = padding + (tableWidth / waveCount) * i;
+        const foldGrad = ctx.createLinearGradient(x - 20, 0, x + 20, 0);
+        foldGrad.addColorStop(0, 'rgba(0,0,0,0)');
+        foldGrad.addColorStop(0.5, 'rgba(0,0,0,0.08)');
+        foldGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = foldGrad;
+        ctx.fillRect(x - 20, frontY, 40, frontHeight);
+    }
+    ctx.restore();
+
+    // Draw right side drape
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(canvas.width - padding, topY + topHeight);
+    ctx.lineTo(canvas.width - padding - perspectiveOffset * 1.5, topY);
+    ctx.lineTo(canvas.width - padding, topY + topHeight * 0.3);
+    ctx.quadraticCurveTo(canvas.width - padding + 20, topY + topHeight + frontHeight * 0.5, canvas.width - padding - 10, topY + topHeight + frontHeight);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(designCanvas, canvas.width - padding - tableWidth * 0.2, topY, tableWidth * 0.5, frontHeight + topHeight);
+    const rightGrad = ctx.createLinearGradient(canvas.width - padding, 0, canvas.width - padding - perspectiveOffset, 0);
+    rightGrad.addColorStop(0, 'rgba(0,0,0,0.25)');
+    rightGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = rightGrad;
+    ctx.fill();
+    ctx.restore();
+
+    // Floor shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.08)';
+    ctx.beginPath();
+    ctx.ellipse(canvas.width / 2, topY + topHeight + frontHeight + 10, tableWidth * 0.45, 15, 0, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+// Table Runner - shows runner over solid color table
+function drawTableRunnerMockup(designCanvas) {
+    const padding = 50;
+    const topY = canvas.height * 0.2;
+    const topHeight = canvas.height * 0.25;
+    const frontHeight = canvas.height * 0.45;
+    const tableWidth = canvas.width - padding * 2;
+    const perspectiveOffset = tableWidth * 0.08;
+    const runnerWidth = tableWidth * 0.35;
+
+    // Background
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Base table color (white/neutral)
+    const tableColor = '#ffffff';
+
+    // Draw table top
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(padding + perspectiveOffset, topY);
+    ctx.lineTo(canvas.width - padding - perspectiveOffset, topY);
+    ctx.lineTo(canvas.width - padding, topY + topHeight);
+    ctx.lineTo(padding, topY + topHeight);
+    ctx.closePath();
+    ctx.fillStyle = tableColor;
+    ctx.fill();
+    const topGrad = ctx.createLinearGradient(0, topY, 0, topY + topHeight);
+    topGrad.addColorStop(0, 'rgba(255,255,255,0.3)');
+    topGrad.addColorStop(1, 'rgba(0,0,0,0.05)');
+    ctx.fillStyle = topGrad;
+    ctx.fill();
+    ctx.restore();
+
+    // Draw front of table
+    ctx.save();
+    const frontY = topY + topHeight;
+    ctx.beginPath();
+    ctx.moveTo(padding, frontY);
+    ctx.lineTo(canvas.width - padding, frontY);
+    ctx.lineTo(canvas.width - padding - perspectiveOffset * 0.3, frontY + frontHeight);
+    ctx.lineTo(padding + perspectiveOffset * 0.3, frontY + frontHeight);
+    ctx.closePath();
+    ctx.fillStyle = tableColor;
+    ctx.fill();
+    const frontGrad = ctx.createLinearGradient(0, frontY, 0, frontY + frontHeight);
+    frontGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    frontGrad.addColorStop(1, 'rgba(0,0,0,0.1)');
+    ctx.fillStyle = frontGrad;
+    ctx.fill();
+    ctx.restore();
+
+    // Draw runner on top (centered strip)
+    ctx.save();
+    const runnerTopX = (canvas.width - runnerWidth) / 2;
+    ctx.beginPath();
+    ctx.moveTo(runnerTopX + perspectiveOffset * 0.35, topY - 5);
+    ctx.lineTo(runnerTopX + runnerWidth - perspectiveOffset * 0.35, topY - 5);
+    ctx.lineTo(runnerTopX + runnerWidth, topY + topHeight);
+    ctx.lineTo(runnerTopX, topY + topHeight);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(designCanvas, runnerTopX, topY - 10, runnerWidth, topHeight + 20);
+    ctx.restore();
+
+    // Draw runner front drape
+    ctx.save();
+    const runnerFrontX = (canvas.width - runnerWidth) / 2;
+    ctx.beginPath();
+    ctx.moveTo(runnerFrontX, frontY);
+    ctx.lineTo(runnerFrontX + runnerWidth, frontY);
+    ctx.lineTo(runnerFrontX + runnerWidth - 5, frontY + frontHeight + 15);
+    ctx.lineTo(runnerFrontX + 5, frontY + frontHeight + 15);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(designCanvas, runnerFrontX, frontY - 10, runnerWidth, frontHeight + 30);
+
+    // Fabric fold in runner
+    const centerX = canvas.width / 2;
+    const foldGrad = ctx.createLinearGradient(centerX - 30, 0, centerX + 30, 0);
+    foldGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    foldGrad.addColorStop(0.5, 'rgba(0,0,0,0.1)');
+    foldGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = foldGrad;
+    ctx.fillRect(centerX - 30, frontY, 60, frontHeight);
+    ctx.restore();
+
+    // Runner edges highlight
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(runnerFrontX, frontY);
+    ctx.lineTo(runnerFrontX + 5, frontY + frontHeight + 15);
+    ctx.moveTo(runnerFrontX + runnerWidth, frontY);
+    ctx.lineTo(runnerFrontX + runnerWidth - 5, frontY + frontHeight + 15);
+    ctx.stroke();
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.08)';
+    ctx.fillRect(padding + 30, topY + topHeight + frontHeight + 5, tableWidth - 60, 12);
+}
+
+// Solid Color Table Throw - just shows color, no custom design
+function drawSolidTableMockup() {
+    const padding = 50;
+    const topY = canvas.height * 0.18;
+    const topHeight = canvas.height * 0.22;
+    const frontHeight = canvas.height * 0.5;
+    const tableWidth = canvas.width - padding * 2;
+    const perspectiveOffset = tableWidth * 0.1;
+
+    // Get selected color from state or default
+    let tableColor = state.solidTableColor || '#000000';
+
+    // Background
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw table top
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(padding + perspectiveOffset, topY);
+    ctx.lineTo(canvas.width - padding - perspectiveOffset, topY);
+    ctx.lineTo(canvas.width - padding, topY + topHeight);
+    ctx.lineTo(padding, topY + topHeight);
+    ctx.closePath();
+    ctx.fillStyle = tableColor;
+    ctx.fill();
+    const topGrad = ctx.createLinearGradient(0, topY, 0, topY + topHeight);
+    topGrad.addColorStop(0, 'rgba(255,255,255,0.2)');
+    topGrad.addColorStop(1, 'rgba(0,0,0,0.1)');
+    ctx.fillStyle = topGrad;
+    ctx.fill();
+    ctx.restore();
+
+    // Draw front
+    ctx.save();
+    const frontY = topY + topHeight;
+    ctx.beginPath();
+    ctx.moveTo(padding, frontY);
+    ctx.lineTo(canvas.width - padding, frontY);
+    ctx.lineTo(canvas.width - padding - perspectiveOffset * 0.5, frontY + frontHeight);
+    ctx.lineTo(padding + perspectiveOffset * 0.5, frontY + frontHeight);
+    ctx.closePath();
+    ctx.fillStyle = tableColor;
+    ctx.fill();
+    const frontGrad = ctx.createLinearGradient(0, frontY, 0, frontY + frontHeight);
+    frontGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    frontGrad.addColorStop(1, 'rgba(0,0,0,0.15)');
+    ctx.fillStyle = frontGrad;
+    ctx.fill();
+    ctx.restore();
+
+    // Side panels
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(padding, topY + topHeight);
+    ctx.lineTo(padding + perspectiveOffset, topY);
+    ctx.lineTo(padding + perspectiveOffset, topY + topHeight * 0.5);
+    ctx.lineTo(padding + perspectiveOffset * 0.5, frontY + frontHeight);
+    ctx.closePath();
+    ctx.fillStyle = tableColor;
+    ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fill();
+    ctx.restore();
+
+    // Edge highlight
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(padding, topY + topHeight);
+    ctx.lineTo(canvas.width - padding, topY + topHeight);
+    ctx.stroke();
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.1)';
+    ctx.fillRect(padding + 30, topY + topHeight + frontHeight + 5, tableWidth - 60, 15);
+}
+
+// Round Table Throw - circular table with draped cloth
+function drawRoundTableMockup(designCanvas) {
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height * 0.35;
+    const topRadiusX = canvas.width * 0.35;
+    const topRadiusY = canvas.height * 0.12;
+    const drapLength = canvas.height * 0.5;
+
+    // Background
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw draped sides (create elliptical drape effect)
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, topRadiusX, topRadiusY, 0, 0, Math.PI);
+    ctx.lineTo(centerX - topRadiusX * 0.9, centerY + drapLength);
+    ctx.quadraticCurveTo(centerX, centerY + drapLength + 20, centerX + topRadiusX * 0.9, centerY + drapLength);
+    ctx.closePath();
+    ctx.clip();
+
+    // Draw design stretched over drape
+    ctx.drawImage(designCanvas, centerX - topRadiusX, centerY - topRadiusY, topRadiusX * 2, drapLength + topRadiusY + 30);
+
+    // Add fabric folds
+    const foldCount = 8;
+    for (let i = 0; i < foldCount; i++) {
+        const angle = (i / foldCount) * Math.PI;
+        const x1 = centerX + Math.cos(angle) * topRadiusX;
+        const x2 = centerX + Math.cos(angle) * topRadiusX * 0.9;
+        const foldGrad = ctx.createLinearGradient(x1 - 15, 0, x1 + 15, 0);
+        foldGrad.addColorStop(0, 'rgba(0,0,0,0)');
+        foldGrad.addColorStop(0.5, 'rgba(0,0,0,0.1)');
+        foldGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = foldGrad;
+        ctx.fillRect(x1 - 15, centerY, 30, drapLength);
+    }
+    ctx.restore();
+
+    // Draw table top (ellipse)
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, topRadiusX, topRadiusY, 0, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(designCanvas, centerX - topRadiusX, centerY - topRadiusY, topRadiusX * 2, topRadiusY * 2);
+
+    // Top lighting
+    const topGrad = ctx.createRadialGradient(centerX, centerY - topRadiusY * 0.5, 0, centerX, centerY, topRadiusX);
+    topGrad.addColorStop(0, 'rgba(255,255,255,0.2)');
+    topGrad.addColorStop(1, 'rgba(0,0,0,0.1)');
+    ctx.fillStyle = topGrad;
+    ctx.fill();
+    ctx.restore();
+
+    // Edge highlight
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, topRadiusX, topRadiusY, 0, Math.PI, Math.PI * 2);
+    ctx.stroke();
+
+    // Floor shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.1)';
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY + drapLength + 10, topRadiusX * 0.85, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
 }
 
 // ========== Update Review Panel ==========
