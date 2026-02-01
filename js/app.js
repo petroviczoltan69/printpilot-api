@@ -2884,8 +2884,95 @@ function initMockupViewToggle() {
             mockupPreview?.classList.remove('hidden');
             // Re-render mockup when shown
             renderMockupCanvas();
+            // Initialize rotation if not already done
+            initMockupRotation();
         }
     });
+}
+
+// ========== Initialize Mockup 3D Rotation ==========
+let mockupRotationY = -15; // Initial rotation
+let isDraggingMockup = false;
+let lastMouseX = 0;
+
+function initMockupRotation() {
+    const mockupPreview = document.getElementById('mockupPreview');
+    const mockupStand = document.getElementById('mockupStand');
+
+    if (!mockupPreview || !mockupStand) return;
+
+    // Remove existing listeners to prevent duplicates
+    mockupPreview.removeEventListener('mousedown', handleMockupMouseDown);
+    mockupPreview.removeEventListener('touchstart', handleMockupTouchStart);
+
+    // Mouse events
+    mockupPreview.addEventListener('mousedown', handleMockupMouseDown);
+    document.addEventListener('mousemove', handleMockupMouseMove);
+    document.addEventListener('mouseup', handleMockupMouseUp);
+
+    // Touch events for mobile
+    mockupPreview.addEventListener('touchstart', handleMockupTouchStart, { passive: false });
+    document.addEventListener('touchmove', handleMockupTouchMove, { passive: false });
+    document.addEventListener('touchend', handleMockupTouchEnd);
+
+    // Set initial rotation
+    updateMockupRotation();
+}
+
+function handleMockupMouseDown(e) {
+    if (e.target.closest('.view-toggle-btn')) return;
+    isDraggingMockup = true;
+    lastMouseX = e.clientX;
+    e.preventDefault();
+}
+
+function handleMockupMouseMove(e) {
+    if (!isDraggingMockup) return;
+
+    const deltaX = e.clientX - lastMouseX;
+    mockupRotationY += deltaX * 0.5; // Sensitivity
+
+    // Clamp rotation to reasonable range
+    mockupRotationY = Math.max(-60, Math.min(60, mockupRotationY));
+
+    lastMouseX = e.clientX;
+    updateMockupRotation();
+}
+
+function handleMockupMouseUp() {
+    isDraggingMockup = false;
+}
+
+function handleMockupTouchStart(e) {
+    if (e.target.closest('.view-toggle-btn')) return;
+    if (e.touches.length === 1) {
+        isDraggingMockup = true;
+        lastMouseX = e.touches[0].clientX;
+        e.preventDefault();
+    }
+}
+
+function handleMockupTouchMove(e) {
+    if (!isDraggingMockup || e.touches.length !== 1) return;
+
+    const deltaX = e.touches[0].clientX - lastMouseX;
+    mockupRotationY += deltaX * 0.5;
+    mockupRotationY = Math.max(-60, Math.min(60, mockupRotationY));
+
+    lastMouseX = e.touches[0].clientX;
+    updateMockupRotation();
+    e.preventDefault();
+}
+
+function handleMockupTouchEnd() {
+    isDraggingMockup = false;
+}
+
+function updateMockupRotation() {
+    const mockupStand = document.getElementById('mockupStand');
+    if (mockupStand) {
+        mockupStand.style.setProperty('--rotate-y', mockupRotationY + 'deg');
+    }
 }
 
 // ========== Add to Cart ==========
