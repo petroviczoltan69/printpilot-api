@@ -1455,6 +1455,13 @@ function goToStep(step) {
     if (step === 3) {
         showDesignControls();
         updateCanvasSize();
+
+        // Pre-load feather flag template if needed
+        if (isFeatherFlagProduct()) {
+            console.log('Pre-loading feather flag template...');
+            loadFeatherFlagTemplate();
+        }
+
         updateCanvas();
     }
 
@@ -1907,46 +1914,260 @@ function isFeatherFlagProduct() {
     return state.currentProduct.id === 'feather-flag';
 }
 
-// ========== Draw Feather Flag Shape (curved left edge - matches B2Sign template) ==========
-function drawFeatherFlagClipPath(ctx, width, height) {
-    ctx.beginPath();
+// ========== B2Sign PDF Template Cache ==========
+let featherFlagTemplateImage = null;
+let featherFlagTemplateLoading = false;
+let featherFlagPdfBytes = null;
 
-    // The feather flag shape from B2Sign PDF (FeatherAngled_XL_SingleSided_PrintThru):
-    // Analyzing the PDF shape carefully:
-    // - Right edge: straight vertical line (pole attachment side)
-    // - Bottom edge: straight horizontal line (full width)
-    // - Top edge: SHORT horizontal line (~12-15% of width)
-    // - Left edge: CURVED line from top-left down to bottom-left
-    //   The curve starts almost straight down, then gradually curves to the left
-    //   reaching maximum width at the bottom
+// Template URLs - try multiple paths for different environments
+const FEATHER_FLAG_TEMPLATE_URLS = [
+    '/FeatherAngled_XL_SingleSided_PrintThru.pdf',           // Vercel production (via route)
+    '/public/FeatherAngled_XL_SingleSided_PrintThru.pdf'     // Local development
+];
 
-    const topWidthRatio = 0.13; // Top is about 13% of total width
-    const topLeftX = width * (1 - topWidthRatio); // X position where top edge ends
+// ========== Load and render B2Sign PDF template as image ==========
+async function loadFeatherFlagTemplate() {
+    if (featherFlagTemplateImage) return featherFlagTemplateImage;
+    if (featherFlagTemplateLoading) {
+        // Already loading - return null but the caller should retry later
+        return null;
+    }
 
-    // Start from top-right corner (pole side)
-    ctx.moveTo(width, 0);
+    featherFlagTemplateLoading = true;
+    console.log('Starting to load feather flag template...');
 
-    // Top edge - short horizontal line going left
-    ctx.lineTo(topLeftX, 0);
+    try {
+        // Initialize PDF.js
+        if (typeof pdfjsLib === 'undefined') {
+            console.error('PDF.js library not loaded');
+            return null;
+        }
 
-    // Left curved edge using cubic bezier
-    // The curve goes from (topLeftX, 0) to (0, height)
-    // Control points create the characteristic feather flag curve
-    ctx.bezierCurveTo(
-        topLeftX * 0.3, height * 0.15,    // CP1: pulls curve down initially, slight left
-        0, height * 0.4,                   // CP2: at left edge, upper-middle area
-        0, height                          // End: bottom-left corner
-    );
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-    // Bottom edge - full width horizontal line to the right
-    ctx.lineTo(width, height);
+        // Try to fetch PDF from multiple URLs
+        let response = null;
+        let successUrl = null;
 
-    // Right edge - closes the path (straight up to start)
-    ctx.closePath();
+        for (const url of FEATHER_FLAG_TEMPLATE_URLS) {
+            console.log('Trying to fetch PDF from:', url);
+            try {
+                response = await fetch(url);
+                if (response.ok) {
+                    successUrl = url;
+                    console.log('Found PDF at:', url);
+                    break;
+                }
+            } catch (e) {
+                console.log('Failed to fetch from:', url);
+            }
+        }
+
+        if (!response || !response.ok) {
+            console.warn('Could not load feather flag template PDF from any URL');
+            return null;
+        }
+
+        // Store bytes for later use in download
+        featherFlagPdfBytes = await response.arrayBuffer();
+        console.log('PDF bytes loaded, size:', featherFlagPdfBytes.byteLength);
+
+        // Render PDF to image using PDF.js
+        const pdf = await pdfjsLib.getDocument({ data: featherFlagPdfBytes.slice(0) }).promise;
+        const page = await pdf.getPage(1);
+
+        // Get page dimensions and render at appropriate scale
+        const viewport = page.getViewport({ scale: 1 });
+        console.log('PDF viewport:', viewport.width, 'x', viewport.height);
+
+        // Create canvas for rendering
+        const pdfCanvas = document.createElement('canvas');
+        const pdfCtx = pdfCanvas.getContext('2d');
+
+        // Scale to fit our preview canvas while maintaining aspect ratio
+        const scale = Math.min(800 / viewport.width, 2000 / viewport.height);
+        const scaledViewport = page.getViewport({ scale });
+
+        pdfCanvas.width = scaledViewport.width;
+        pdfCanvas.height = scaledViewport.height;
+
+        // Render PDF page
+        await page.render({
+            canvasContext: pdfCtx,
+            viewport: scaledViewport
+        }).promise;
+
+        // Convert to image
+        featherFlagTemplateImage = new Image();
+        featherFlagTemplateImage.src = pdfCanvas.toDataURL('image/png');
+
+        await new Promise((resolve, reject) => {
+            featherFlagTemplateImage.onload = resolve;
+            featherFlagTemplateImage.onerror = reject;
+        });
+
+        console.log('Feather flag template loaded successfully!');
+
+        // Trigger canvas re-render now that template is loaded
+        if (isFeatherFlagProduct() && canvas && ctx) {
+            console.log('Re-rendering canvas with loaded template...');
+            updateCanvas();
+        }
+
+        return featherFlagTemplateImage;
+    } catch (error) {
+        console.error('Error loading feather flag template:', error);
+        return null;
+    } finally {
+        featherFlagTemplateLoading = false;
+    }
 }
 
-// ========== Draw Feather Flag Canvas with Shape ==========
-function drawFeatherFlagCanvas() {
+// ========== Get print area coordinates from B2Sign PDF ==========
+// These are approximate coordinates of the white print area in the PDF
+// Measured from the PDF: the print area is positioned within the page
+function getFeatherFlagPrintArea(templateWidth, templateHeight) {
+    // Based on analysis of the B2Sign PDF template
+    // The print area starts after the header text and has margins
+    return {
+        x: templateWidth * 0.04,        // Left margin ~4%
+        y: templateHeight * 0.045,       // Top margin ~4.5% (after header)
+        width: templateWidth * 0.92,    // Print area width ~92%
+        height: templateHeight * 0.94   // Print area height ~94%
+    };
+}
+
+// ========== Draw Feather Flag Canvas using PDF Template ==========
+async function drawFeatherFlagCanvas() {
+    // Try to load the template
+    const template = await loadFeatherFlagTemplate();
+
+    if (template) {
+        // Draw using actual PDF template
+        drawFeatherFlagWithTemplate(template);
+    } else {
+        // Fallback: draw with approximated shape
+        drawFeatherFlagFallback();
+    }
+}
+
+function drawFeatherFlagWithTemplate(template) {
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Calculate scaling to fit template in canvas
+    const templateAspect = template.width / template.height;
+    const canvasAspect = canvas.width / canvas.height;
+
+    let drawWidth, drawHeight, drawX, drawY;
+
+    if (templateAspect > canvasAspect) {
+        // Template is wider - fit to width
+        drawWidth = canvas.width;
+        drawHeight = canvas.width / templateAspect;
+        drawX = 0;
+        drawY = (canvas.height - drawHeight) / 2;
+    } else {
+        // Template is taller - fit to height
+        drawHeight = canvas.height;
+        drawWidth = canvas.height * templateAspect;
+        drawX = (canvas.width - drawWidth) / 2;
+        drawY = 0;
+    }
+
+    // Draw template as background
+    ctx.drawImage(template, drawX, drawY, drawWidth, drawHeight);
+
+    // Get print area coordinates
+    const printArea = getFeatherFlagPrintArea(drawWidth, drawHeight);
+    const printAreaX = drawX + printArea.x;
+    const printAreaY = drawY + printArea.y;
+    const printAreaW = printArea.width;
+    const printAreaH = printArea.height;
+
+    // Create temporary canvas for user's design
+    const designCanvas = document.createElement('canvas');
+    designCanvas.width = canvas.width;
+    designCanvas.height = canvas.height;
+    const designCtx = designCanvas.getContext('2d');
+
+    // Draw background on design canvas
+    if (state.backgroundType === 'solid') {
+        const color = document.getElementById('bgColor')?.value || '#ffffff';
+        designCtx.fillStyle = color;
+        designCtx.fillRect(0, 0, designCanvas.width, designCanvas.height);
+    } else if (state.backgroundType === 'gradient') {
+        const color1 = document.getElementById('gradColor1')?.value || '#667eea';
+        const color2 = document.getElementById('gradColor2')?.value || '#764ba2';
+        let gradient;
+        switch (state.gradDirection) {
+            case 'horizontal':
+                gradient = designCtx.createLinearGradient(0, 0, designCanvas.width, 0);
+                break;
+            case 'vertical':
+                gradient = designCtx.createLinearGradient(0, 0, 0, designCanvas.height);
+                break;
+            case 'diagonal':
+                gradient = designCtx.createLinearGradient(0, 0, designCanvas.width, designCanvas.height);
+                break;
+            case 'radial':
+                gradient = designCtx.createRadialGradient(
+                    designCanvas.width / 2, designCanvas.height / 2, 0,
+                    designCanvas.width / 2, designCanvas.height / 2, Math.max(designCanvas.width, designCanvas.height) / 2
+                );
+                break;
+            default:
+                gradient = designCtx.createLinearGradient(0, 0, designCanvas.width, 0);
+        }
+        gradient.addColorStop(0, color1);
+        gradient.addColorStop(1, color2);
+        designCtx.fillStyle = gradient;
+        designCtx.fillRect(0, 0, designCanvas.width, designCanvas.height);
+    }
+
+    // Draw uploaded image
+    if (state.uploadedImage) {
+        const imgRatio = state.uploadedImage.width / state.uploadedImage.height;
+        const canvasRatio = designCanvas.width / designCanvas.height;
+        let x, y, width, height;
+
+        if (state.photoFitMode === 'cover') {
+            if (imgRatio > canvasRatio) {
+                height = designCanvas.height * (state.photoImageScale / 100);
+                width = height * imgRatio;
+            } else {
+                width = designCanvas.width * (state.photoImageScale / 100);
+                height = width / imgRatio;
+            }
+            x = (designCanvas.width - width) * state.photoImageX;
+            y = (designCanvas.height - height) * state.photoImageY;
+        } else {
+            width = designCanvas.width * 0.9 * (state.photoImageScale / 100);
+            height = width / imgRatio;
+            x = (designCanvas.width - width) / 2;
+            y = (designCanvas.height - height) / 2;
+        }
+
+        designCtx.drawImage(state.uploadedImage, x, y, width, height);
+    }
+
+    // Draw logo if in logo mode
+    if (state.designType === 'logo' && state.logoImage) {
+        const logoSize = Math.min(designCanvas.width, designCanvas.height) * 0.6;
+        const logoX = (designCanvas.width - logoSize) / 2;
+        const logoY = (designCanvas.height - logoSize) / 2;
+        designCtx.drawImage(state.logoImage, logoX, logoY, logoSize, logoSize);
+    }
+
+    // Draw user's design into the print area (with some transparency to show template underneath)
+    ctx.globalAlpha = 0.9;
+    ctx.drawImage(designCanvas, 0, 0, designCanvas.width, designCanvas.height,
+                  printAreaX, printAreaY, printAreaW, printAreaH);
+    ctx.globalAlpha = 1.0;
+}
+
+function drawFeatherFlagFallback() {
+    // Fallback when template PDF is not available
     // First draw the content normally
     if (state.designType === 'photo') {
         drawPhotoMode();
@@ -1954,7 +2175,6 @@ function drawFeatherFlagCanvas() {
         drawLogoMode();
     }
 
-    // Now apply the feather flag shape mask
     // Create a temporary canvas with the content
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = canvas.width;
@@ -1962,32 +2182,46 @@ function drawFeatherFlagCanvas() {
     const tempCtx = tempCanvas.getContext('2d');
     tempCtx.drawImage(canvas, 0, 0);
 
-    // Clear main canvas and draw with clip path
+    // Clear main canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw light gray background to show the shape
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Apply feather flag clip path
+    // Simple approximated feather shape
     ctx.save();
-    drawFeatherFlagClipPath(ctx, canvas.width, canvas.height);
+    ctx.beginPath();
+    const topWidthRatio = 0.13;
+    const topLeftX = canvas.width * (1 - topWidthRatio);
+    ctx.moveTo(canvas.width, 0);
+    ctx.lineTo(topLeftX, 0);
+    ctx.bezierCurveTo(
+        topLeftX * 0.3, canvas.height * 0.15,
+        0, canvas.height * 0.4,
+        0, canvas.height
+    );
+    ctx.lineTo(canvas.width, canvas.height);
+    ctx.closePath();
     ctx.clip();
-
-    // Draw the content within the clip path
     ctx.drawImage(tempCanvas, 0, 0);
-
     ctx.restore();
 
-    // Draw the feather flag outline
+    // Draw outline
     ctx.strokeStyle = '#e53935';
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 5]);
-    drawFeatherFlagClipPath(ctx, canvas.width, canvas.height);
+    ctx.beginPath();
+    ctx.moveTo(canvas.width, 0);
+    ctx.lineTo(topLeftX, 0);
+    ctx.bezierCurveTo(
+        topLeftX * 0.3, canvas.height * 0.15,
+        0, canvas.height * 0.4,
+        0, canvas.height
+    );
+    ctx.lineTo(canvas.width, canvas.height);
+    ctx.closePath();
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Add "PRINT AREA" label
     ctx.fillStyle = 'rgba(229, 57, 53, 0.8)';
     ctx.font = 'bold 12px Arial';
     ctx.textAlign = 'center';
@@ -3435,52 +3669,55 @@ async function downloadFeatherFlagPDF() {
     showLoading(true);
 
     try {
-        const { jsPDF } = window.jspdf;
+        const { PDFDocument } = PDFLib;
         const sizeLabel = state.selectedSize.label;
 
-        // Get dimensions based on size (from B2Sign specs)
-        let graphicWidth, graphicHeight;
-        if (sizeLabel.includes('Small')) {
-            graphicWidth = 23.5;
-            graphicHeight = 78.5;
-        } else if (sizeLabel.includes('Medium')) {
-            graphicWidth = 24;
-            graphicHeight = 104;
-        } else if (sizeLabel.includes('Large') && !sizeLabel.includes('X-Large')) {
-            graphicWidth = 28;
-            graphicHeight = 138;
-        } else if (sizeLabel.includes('X-Large')) {
-            graphicWidth = 24;
-            graphicHeight = 183.5;
+        // Load the original B2Sign PDF template
+        let pdfBytes;
+        if (featherFlagPdfBytes) {
+            // Use cached bytes
+            pdfBytes = featherFlagPdfBytes.slice(0);
         } else {
-            graphicWidth = 24;
-            graphicHeight = 104;
+            // Fetch the template
+            const response = await fetch(FEATHER_FLAG_TEMPLATE_URL);
+            if (!response.ok) {
+                throw new Error('Could not load PDF template. Make sure the file is deployed.');
+            }
+            pdfBytes = await response.arrayBuffer();
         }
 
-        // PDF page size with margins for header/footer
-        const pdfWidth = graphicWidth + 2;
-        const pdfHeight = graphicHeight + 4;
+        // Load the PDF with pdf-lib
+        const pdfDoc = await PDFDocument.load(pdfBytes);
+        const pages = pdfDoc.getPages();
+        const page = pages[0];
 
-        // Create PDF
-        const pdf = new jsPDF({
-            orientation: 'portrait',
-            unit: 'in',
-            format: [pdfWidth, pdfHeight]
-        });
+        // Get page dimensions (in points, 72 points = 1 inch)
+        const { width: pageWidth, height: pageHeight } = page.getSize();
 
-        // Create high-res canvas for the design
+        // B2Sign XL template dimensions (24" x 183.5" graphic area)
+        // The print area is positioned within the page with margins
+        // Based on PDF analysis, approximate print area coordinates:
+        const printAreaX = pageWidth * 0.04;           // ~4% from left
+        const printAreaY = pageHeight * 0.01;          // ~1% from bottom
+        const printAreaWidth = pageWidth * 0.92;       // ~92% width
+        const printAreaHeight = pageHeight * 0.945;    // ~94.5% height
+
+        // Create high-res canvas for user's design at 150 DPI
         const dpi = 150;
+        const graphicWidthInches = 24;
+        const graphicHeightInches = 183.5;
+
         const printCanvas = document.createElement('canvas');
-        printCanvas.width = graphicWidth * dpi;
-        printCanvas.height = graphicHeight * dpi;
+        printCanvas.width = graphicWidthInches * dpi;
+        printCanvas.height = graphicHeightInches * dpi;
         const printCtx = printCanvas.getContext('2d');
 
         // Scale for drawing
         const scaleX = printCanvas.width / canvas.width;
         const scaleY = printCanvas.height / canvas.height;
 
-        printCtx.fillStyle = '#ffffff';
-        printCtx.fillRect(0, 0, printCanvas.width, printCanvas.height);
+        // Start with transparent background (so template shows through)
+        printCtx.clearRect(0, 0, printCanvas.width, printCanvas.height);
 
         printCtx.save();
         printCtx.scale(scaleX, scaleY);
@@ -3554,98 +3791,40 @@ async function downloadFeatherFlagPDF() {
 
         printCtx.restore();
 
-        // Add header text (same as B2Sign template)
-        pdf.setFontSize(14);
-        pdf.setTextColor(41, 98, 255); // Blue like B2Sign
-        pdf.text(`Feather Angled Flag ${sizeLabel}`, 0.5, 0.5);
-        pdf.setFontSize(11);
-        pdf.text('Single Sided Print Thru', 0.5, 0.75);
+        // Convert canvas to PNG and embed in PDF
+        const pngDataUrl = printCanvas.toDataURL('image/png');
+        const pngData = pngDataUrl.split(',')[1];
+        const pngImageBytes = Uint8Array.from(atob(pngData), c => c.charCodeAt(0));
 
-        pdf.setFontSize(9);
-        pdf.setTextColor(229, 57, 53); // Red
-        pdf.text('*CMYK Color Space', 0.5, 1.0);
+        // Embed the design image
+        const designImage = await pdfDoc.embedPng(pngImageBytes);
 
-        pdf.setFontSize(8);
-        pdf.setTextColor(0, 0, 0);
-        pdf.text('1. Design your artwork on the ARTWORK HERE layer', 0.5, 1.25);
-        pdf.text('2. Save as PDF or Export as JPG', 0.5, 1.4);
+        // Draw the design image in the print area
+        // The image is drawn UNDER the existing content (cut lines stay on top)
+        // pdf-lib draws on top by default, but the template cut lines are vector
+        // so they will remain visible
+        page.drawImage(designImage, {
+            x: printAreaX,
+            y: printAreaY,
+            width: printAreaWidth,
+            height: printAreaHeight,
+        });
 
-        pdf.setFontSize(8);
-        pdf.setTextColor(229, 57, 53);
-        pdf.text('TIPS', 0.5, 1.65);
-        pdf.text('• Keep important text/images 2 inches from the edge of product', 0.5, 1.8);
-        pdf.setTextColor(255, 0, 0);
-        pdf.text('• Do not adjust the mask or artboards', 0.5, 1.95);
-
-        // Position for the design area
-        const offsetX = 0.5;
-        const offsetY = 2.2;
-
-        // Add the design image first (behind the cut line)
-        const imgData = printCanvas.toDataURL('image/jpeg', 0.95);
-        pdf.addImage(imgData, 'JPEG', offsetX, offsetY, graphicWidth, graphicHeight);
-
-        // Draw feather flag cut line (red dashed) - matching B2Sign template shape
-        pdf.setDrawColor(229, 57, 53);
-        pdf.setLineWidth(0.015);
-        pdf.setLineDashPattern([0.1, 0.1], 0);
-
-        // Feather flag shape coordinates (matching the B2Sign PDF exactly)
-        const topWidthRatio = 0.13;
-        const topLeftX = graphicWidth * (1 - topWidthRatio);
-
-        // Right edge - straight vertical line (pole side)
-        pdf.line(offsetX + graphicWidth, offsetY, offsetX + graphicWidth, offsetY + graphicHeight);
-
-        // Bottom edge - full width
-        pdf.line(offsetX + graphicWidth, offsetY + graphicHeight, offsetX, offsetY + graphicHeight);
-
-        // Left curved edge - using line segments to approximate bezier curve
-        const segments = 80;
-        for (let i = 1; i <= segments; i++) {
-            const t = i / segments;
-            const prevT = (i - 1) / segments;
-
-            // Cubic bezier from (topLeftX, 0) to (0, graphicHeight)
-            // CP1: (topLeftX * 0.3, graphicHeight * 0.15)
-            // CP2: (0, graphicHeight * 0.4)
-            const cp1x = topLeftX * 0.3;
-            const cp1y = graphicHeight * 0.15;
-            const cp2x = 0;
-            const cp2y = graphicHeight * 0.4;
-
-            const t1 = 1 - t;
-            const prevT1 = 1 - prevT;
-
-            // Current point
-            const x = t1*t1*t1*topLeftX + 3*t1*t1*t*cp1x + 3*t1*t*t*cp2x + t*t*t*0;
-            const y = t1*t1*t1*0 + 3*t1*t1*t*cp1y + 3*t1*t*t*cp2y + t*t*t*graphicHeight;
-
-            // Previous point
-            const prevX = prevT1*prevT1*prevT1*topLeftX + 3*prevT1*prevT1*prevT*cp1x + 3*prevT1*prevT*prevT*cp2x + prevT*prevT*prevT*0;
-            const prevY = prevT1*prevT1*prevT1*0 + 3*prevT1*prevT1*prevT*cp1y + 3*prevT1*prevT*prevT*cp2y + prevT*prevT*prevT*graphicHeight;
-
-            pdf.line(offsetX + prevX, offsetY + prevY, offsetX + x, offsetY + y);
-        }
-
-        // Top edge - short horizontal line
-        pdf.line(offsetX + topLeftX, offsetY, offsetX + graphicWidth, offsetY);
-
-        // Reset line dash
-        pdf.setLineDashPattern([], 0);
-
-        // Footer
-        pdf.setFontSize(7);
-        pdf.setTextColor(100, 100, 100);
-        pdf.text(`Graphic Size: ${graphicWidth}" x ${graphicHeight}" | 150 DPI | CMYK`, 0.5, pdfHeight - 0.3);
-        pdf.text('Generated by PrintPilot - Based on B2Sign Template', 0.5, pdfHeight - 0.15);
+        // Save the modified PDF
+        const modifiedPdfBytes = await pdfDoc.save();
 
         // Download
+        const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
         const productName = state.currentProduct.name.replace(/\s+/g, '_');
         const sizeName = sizeLabel.replace(/[^a-zA-Z0-9]/g, '_');
-        pdf.save(`${productName}_${sizeName}_PrintReady.pdf`);
+        link.download = `${productName}_${sizeName}_PrintReady.pdf`;
+        link.click();
+        URL.revokeObjectURL(url);
 
-        showSuccess(`Feather Flag PDF Downloaded! Size: ${graphicWidth}" x ${graphicHeight}"`);
+        showSuccess(`Feather Flag PDF Downloaded! Using official B2Sign template.`);
     } catch (error) {
         console.error('PDF generation error:', error);
         alert('Error generating PDF: ' + error.message);
