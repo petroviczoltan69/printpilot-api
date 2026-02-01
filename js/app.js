@@ -1901,6 +1901,84 @@ function addTextLayer() {
     showSuccess('Text added!');
 }
 
+// ========== Check if Feather Flag Product ==========
+function isFeatherFlagProduct() {
+    if (!state.currentProduct) return false;
+    const productId = Object.keys(PRODUCTS).find(k => PRODUCTS[k] === state.currentProduct);
+    return productId === 'feather-flag';
+}
+
+// ========== Draw Feather Flag Shape (curved left edge) ==========
+function drawFeatherFlagClipPath(ctx, width, height) {
+    ctx.beginPath();
+    // Start from top-left
+    ctx.moveTo(0, 0);
+    // Top edge (straight)
+    ctx.lineTo(width, 0);
+    // Right edge (straight)
+    ctx.lineTo(width, height);
+    // Bottom edge (straight)
+    ctx.lineTo(0, height);
+    // Left edge (curved inward) - the feather curve
+    // Bezier curve from bottom-left to top-left with control points creating the feather shape
+    const curveDepth = width * 0.35; // How much the curve goes inward
+    ctx.bezierCurveTo(
+        curveDepth, height * 0.7,  // First control point
+        curveDepth, height * 0.3,  // Second control point
+        0, 0                        // End point (top-left)
+    );
+    ctx.closePath();
+}
+
+// ========== Draw Feather Flag Canvas with Shape ==========
+function drawFeatherFlagCanvas() {
+    // First draw the content normally
+    if (state.designType === 'photo') {
+        drawPhotoMode();
+    } else if (state.designType === 'logo') {
+        drawLogoMode();
+    }
+
+    // Now apply the feather flag shape mask
+    // Create a temporary canvas with the content
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(canvas, 0, 0);
+
+    // Clear main canvas and draw with clip path
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw light gray background to show the shape
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Apply feather flag clip path
+    ctx.save();
+    drawFeatherFlagClipPath(ctx, canvas.width, canvas.height);
+    ctx.clip();
+
+    // Draw the content within the clip path
+    ctx.drawImage(tempCanvas, 0, 0);
+
+    ctx.restore();
+
+    // Draw the feather flag outline
+    ctx.strokeStyle = '#e53935';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    drawFeatherFlagClipPath(ctx, canvas.width, canvas.height);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Add "PRINT AREA" label
+    ctx.fillStyle = 'rgba(229, 57, 53, 0.8)';
+    ctx.font = 'bold 12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('PRINT AREA', canvas.width / 2 + canvas.width * 0.1, 20);
+}
+
 // ========== Canvas Update ==========
 function updateCanvas() {
     if (!ctx || !canvas) return;
@@ -1908,8 +1986,12 @@ function updateCanvas() {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // Check if this is a feather flag product
+    if (isFeatherFlagProduct()) {
+        drawFeatherFlagCanvas();
+    }
     // Check if this is a table cloth product that needs mockup preview
-    if (isTableClothProduct() && (state.designType === 'photo' || state.designType === 'logo')) {
+    else if (isTableClothProduct() && (state.designType === 'photo' || state.designType === 'logo')) {
         drawTableMockup();
     } else if (state.designType === 'photo') {
         drawPhotoMode();
@@ -2819,6 +2901,7 @@ function updateReviewPanel() {
     const summarySize = document.getElementById('summarySize');
     const summaryOptions = document.getElementById('summaryOptions');
     const summaryTotal = document.getElementById('summaryTotal');
+    const viewToggle = document.querySelector('.preview-view-toggle');
 
     if (summaryProduct && state.currentProduct) {
         summaryProduct.textContent = state.currentProduct.name;
@@ -2843,6 +2926,21 @@ function updateReviewPanel() {
             if (option) total += option.price;
         });
         summaryTotal.textContent = '$' + total.toFixed(2);
+    }
+
+    // Hide 3D mockup toggle for products without 3D support (flags, etc.)
+    if (viewToggle) {
+        const productsWithout3D = ['feather-flag']; // Products that don't have 3D mockup
+        const currentProductId = state.currentProduct?.id || Object.keys(PRODUCTS).find(k => PRODUCTS[k] === state.currentProduct);
+
+        if (productsWithout3D.includes(currentProductId)) {
+            viewToggle.style.display = 'none';
+            // Ensure flat view is shown
+            document.getElementById('flatPreview')?.classList.remove('hidden');
+            document.getElementById('mockupPreview')?.classList.add('hidden');
+        } else {
+            viewToggle.style.display = 'flex';
+        }
     }
 }
 
@@ -3312,11 +3410,226 @@ function handleAddToCart() {
     }, 1500);
 }
 
+// ========== Download Feather Flag PDF ==========
+async function downloadFeatherFlagPDF() {
+    if (!canvas || !state.currentProduct || !state.selectedSize) {
+        alert('Please complete your design first.');
+        return;
+    }
+
+    showLoading(true);
+
+    try {
+        const { jsPDF } = window.jspdf;
+
+        // Get size dimensions - feather flag sizes are in inches
+        const sizeLabel = state.selectedSize.label;
+        let pdfWidth, pdfHeight, graphicWidth, graphicHeight;
+
+        // Dimensions from B2Sign specs (width x height in inches)
+        if (sizeLabel.includes('Small')) {
+            graphicWidth = 23.5;
+            graphicHeight = 78.5;
+        } else if (sizeLabel.includes('Medium')) {
+            graphicWidth = 24;
+            graphicHeight = 104;
+        } else if (sizeLabel.includes('Large') && !sizeLabel.includes('X-Large')) {
+            graphicWidth = 28;
+            graphicHeight = 138;
+        } else if (sizeLabel.includes('X-Large')) {
+            graphicWidth = 24;
+            graphicHeight = 183.5;
+        } else {
+            graphicWidth = 24;
+            graphicHeight = 104;
+        }
+
+        // PDF page size (add margin for template info)
+        pdfWidth = graphicWidth + 2;
+        pdfHeight = graphicHeight + 4;
+
+        // Create PDF in inches
+        const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'in',
+            format: [pdfWidth, pdfHeight]
+        });
+
+        // Create high-res canvas for the design (without the shape mask for print)
+        const printCanvas = document.createElement('canvas');
+        const dpi = 150;
+        printCanvas.width = graphicWidth * dpi;
+        printCanvas.height = graphicHeight * dpi;
+        const printCtx = printCanvas.getContext('2d');
+
+        // Scale context
+        printCtx.scale(dpi / 72, dpi / 72);
+
+        // Draw design content (without the feather shape - printer will cut)
+        printCtx.fillStyle = '#ffffff';
+        printCtx.fillRect(0, 0, graphicWidth * 72, graphicHeight * 72);
+
+        // Redraw the design at print resolution
+        const scaleX = (graphicWidth * 72) / canvas.width;
+        const scaleY = (graphicHeight * 72) / canvas.height;
+        const scale = Math.min(scaleX, scaleY);
+
+        printCtx.save();
+        printCtx.scale(scale, scale);
+
+        // Draw background
+        if (state.backgroundType === 'solid') {
+            const color = document.getElementById('bgColor')?.value || '#ffffff';
+            printCtx.fillStyle = color;
+            printCtx.fillRect(0, 0, canvas.width, canvas.height);
+        } else if (state.backgroundType === 'gradient') {
+            const color1 = document.getElementById('gradColor1')?.value || '#667eea';
+            const color2 = document.getElementById('gradColor2')?.value || '#764ba2';
+            let gradient = printCtx.createLinearGradient(0, 0, canvas.width, 0);
+            gradient.addColorStop(0, color1);
+            gradient.addColorStop(1, color2);
+            printCtx.fillStyle = gradient;
+            printCtx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Draw image
+        if (state.uploadedImage) {
+            const imgRatio = state.uploadedImage.width / state.uploadedImage.height;
+            const canvasRatio = canvas.width / canvas.height;
+            let x, y, width, height;
+
+            if (state.photoFitMode === 'cover') {
+                if (imgRatio > canvasRatio) {
+                    height = canvas.height * (state.photoImageScale / 100);
+                    width = height * imgRatio;
+                } else {
+                    width = canvas.width * (state.photoImageScale / 100);
+                    height = width / imgRatio;
+                }
+                x = (canvas.width - width) * state.photoImageX;
+                y = (canvas.height - height) * state.photoImageY;
+            } else {
+                width = canvas.width * 0.9 * (state.photoImageScale / 100);
+                height = width / imgRatio;
+                x = (canvas.width - width) / 2;
+                y = (canvas.height - height) / 2;
+            }
+
+            printCtx.drawImage(state.uploadedImage, x, y, width, height);
+        }
+
+        // Draw logo if in logo mode
+        if (state.designType === 'logo' && state.logoImage) {
+            // Center logo
+            const logoSize = Math.min(canvas.width, canvas.height) * 0.6;
+            const logoX = (canvas.width - logoSize) / 2;
+            const logoY = (canvas.height - logoSize) / 2;
+            printCtx.drawImage(state.logoImage, logoX, logoY, logoSize, logoSize);
+        }
+
+        printCtx.restore();
+
+        // Add header text
+        pdf.setFontSize(14);
+        pdf.setTextColor(0, 0, 0);
+        pdf.text(`Feather Angled Flag - ${sizeLabel}`, 1, 0.5);
+        pdf.setFontSize(10);
+        pdf.text('Single Sided Print Thru', 1, 0.8);
+        pdf.setFontSize(8);
+        pdf.text(`Graphic Size: ${graphicWidth}" x ${graphicHeight}"`, 1, 1.1);
+        pdf.text('Color Mode: CMYK | Resolution: 150 DPI', 1, 1.3);
+
+        // Draw feather flag outline (cut line)
+        pdf.setDrawColor(229, 57, 53); // Red
+        pdf.setLineWidth(0.01);
+        pdf.setLineDashPattern([0.1, 0.1], 0);
+
+        // Draw the feather shape outline
+        const offsetX = 1;
+        const offsetY = 1.6;
+
+        // Create bezier curve path for feather shape
+        // Right edge, bottom edge are straight
+        // Left edge has the curve
+
+        pdf.line(offsetX + graphicWidth, offsetY, offsetX + graphicWidth, offsetY + graphicHeight); // Right edge
+        pdf.line(offsetX + graphicWidth, offsetY + graphicHeight, offsetX, offsetY + graphicHeight); // Bottom edge
+
+        // Left curved edge (approximated with lines for PDF)
+        const curveDepth = graphicWidth * 0.35;
+        const segments = 50;
+        for (let i = 0; i <= segments; i++) {
+            const t = i / segments;
+            const t1 = 1 - t;
+            // Bezier curve calculation
+            const x = t1 * t1 * t1 * 0 +
+                      3 * t1 * t1 * t * curveDepth +
+                      3 * t1 * t * t * curveDepth +
+                      t * t * t * 0;
+            const y = t1 * t1 * t1 * graphicHeight +
+                      3 * t1 * t1 * t * (graphicHeight * 0.7) +
+                      3 * t1 * t * t * (graphicHeight * 0.3) +
+                      t * t * t * 0;
+
+            if (i === 0) {
+                // Start point
+            } else {
+                const prevT = (i - 1) / segments;
+                const prevT1 = 1 - prevT;
+                const prevX = prevT1 * prevT1 * prevT1 * 0 +
+                              3 * prevT1 * prevT1 * prevT * curveDepth +
+                              3 * prevT1 * prevT * prevT * curveDepth +
+                              prevT * prevT * prevT * 0;
+                const prevY = prevT1 * prevT1 * prevT1 * graphicHeight +
+                              3 * prevT1 * prevT1 * prevT * (graphicHeight * 0.7) +
+                              3 * prevT1 * prevT * prevT * (graphicHeight * 0.3) +
+                              prevT * prevT * prevT * 0;
+                pdf.line(offsetX + prevX, offsetY + prevY, offsetX + x, offsetY + y);
+            }
+        }
+
+        // Top edge
+        pdf.line(offsetX, offsetY, offsetX + graphicWidth, offsetY);
+
+        // Add the design image
+        const imgData = printCanvas.toDataURL('image/jpeg', 0.95);
+
+        // Clip to feather shape and add image
+        // Note: jsPDF doesn't support clip paths well, so we add the full image
+        // The printer will cut along the red line
+        pdf.addImage(imgData, 'JPEG', offsetX, offsetY, graphicWidth, graphicHeight);
+
+        // Add footer note
+        pdf.setLineDashPattern([], 0);
+        pdf.setFontSize(7);
+        pdf.setTextColor(100, 100, 100);
+        pdf.text('Red dashed line indicates cut line. Printer will cut to this shape.', 1, pdfHeight - 0.3);
+        pdf.text('Generated by PrintPilot', 1, pdfHeight - 0.1);
+
+        // Download
+        const productName = state.currentProduct.name.replace(/\s+/g, '_');
+        const sizeName = sizeLabel.replace(/[^a-zA-Z0-9]/g, '_');
+        pdf.save(`${productName}_${sizeName}_PrintReady.pdf`);
+
+        showSuccess(`Feather Flag PDF Downloaded! Size: ${graphicWidth}" x ${graphicHeight}" | 150 DPI | CMYK`);
+    } catch (error) {
+        console.error('PDF generation error:', error);
+        alert('Error generating PDF. Please try again.');
+    } finally {
+        showLoading(false);
+    }
+}
+
 // ========== Download PDF ==========
 async function downloadPDF() {
     if (!canvas || !state.currentProduct || !state.selectedSize) {
         alert('Please complete your design first.');
         return;
+    }
+
+    // Check if this is a feather flag - use special PDF function
+    if (isFeatherFlagProduct()) {
+        return downloadFeatherFlagPDF();
     }
 
     showLoading(true);
