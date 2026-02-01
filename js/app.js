@@ -1584,7 +1584,7 @@ function updateCanvasSize() {
     }
 
     // Update safe area overlay based on product printSpecs
-    updateSafeAreaOverlay(canvasWidth, canvasHeight, productWidth, productHeight);
+    updateSafeAreaOverlay(canvas.width, canvas.height, productWidth, productHeight);
 }
 
 // ========== Update Safe Area Overlay ==========
