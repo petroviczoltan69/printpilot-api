@@ -2859,29 +2859,32 @@ function renderMockupCanvas() {
 
 // ========== Initialize Mockup View Toggle ==========
 function initMockupViewToggle() {
-    const toggleBtns = document.querySelectorAll('.view-toggle-btn');
-    const flatPreview = document.getElementById('flatPreview');
-    const mockupPreview = document.getElementById('mockupPreview');
+    // Use event delegation on document to handle dynamically visible elements
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.view-toggle-btn');
+        if (!btn) return;
 
-    toggleBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            const view = this.dataset.view;
+        const view = btn.dataset.view;
+        const flatPreview = document.getElementById('flatPreview');
+        const mockupPreview = document.getElementById('mockupPreview');
+        const toggleBtns = document.querySelectorAll('.view-toggle-btn');
 
-            // Update button states
-            toggleBtns.forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
+        console.log('View toggle clicked:', view);
 
-            // Show/hide previews
-            if (view === 'flat') {
-                flatPreview?.classList.remove('hidden');
-                mockupPreview?.classList.add('hidden');
-            } else if (view === 'mockup') {
-                flatPreview?.classList.add('hidden');
-                mockupPreview?.classList.remove('hidden');
-                // Re-render mockup when shown
-                renderMockupCanvas();
-            }
-        });
+        // Update button states
+        toggleBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Show/hide previews
+        if (view === 'flat') {
+            flatPreview?.classList.remove('hidden');
+            mockupPreview?.classList.add('hidden');
+        } else if (view === 'mockup') {
+            flatPreview?.classList.add('hidden');
+            mockupPreview?.classList.remove('hidden');
+            // Re-render mockup when shown
+            renderMockupCanvas();
+        }
     });
 }
 
