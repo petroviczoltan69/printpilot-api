@@ -92,15 +92,34 @@ const PRODUCTS = {
         name: 'Retractable Banner',
         category: 'banners',
         sizes: [
-            { label: '24" x 80"', width: 24, height: 80, price: 79.99 },
-            { label: '33" x 80"', width: 33, height: 80, price: 99.99 },
-            { label: '47" x 80"', width: 47, height: 80, price: 149.99 }
+            { label: '23" x 66"', width: 23, height: 66, price: 69.99 },
+            { label: '24" x 81"', width: 24, height: 81, price: 79.99 },
+            { label: '33" x 81"', width: 33, height: 81, price: 99.99 },
+            { label: '47" x 81"', width: 47, height: 81, price: 149.99 }
         ],
         options: [
-            { id: 'premium-base', label: 'Premium Base', price: 30 },
-            { id: 'travel-bag', label: 'Padded Travel Bag', price: 15 }
+            { id: 'uv-fabric', label: 'UV Printed Fabric (Recommended)', price: 0, default: true },
+            { id: 'matte-vinyl', label: '13oz Matte Vinyl', price: 0 },
+            { id: 'led-light', label: 'LED Light', price: 49.99 },
+            { id: 'travel-bag', label: 'Travel Bag (Included)', price: 0, default: true }
         ],
-        canvasRatio: 0.4
+        // Print specifications from BS.run catalog
+        printSpecs: {
+            materials: ['UV Printed Coated Polyester Fabric', '13 oz. Matte Vinyl Banner'],
+            safetyMargins: {
+                top: 1,      // 1 inch from top
+                bottom: 3,   // 3 inches from bottom (retractable mechanism)
+                left: 0,
+                right: 0
+            },
+            fileFormats: ['JPEG', 'PDF'],
+            colorSpace: 'CMYK',
+            resolution: 150,  // DPI - sufficient for large format
+            maxFileSize: 300, // MB
+            bleed: 0,         // No bleed required
+            notes: 'Submit artwork built to ordered size. Do not include crop marks or bleeds.'
+        },
+        canvasRatio: 0.407  // 33/81 ratio for default size
     },
     'yard-sign': {
         name: 'Yard Signs',
@@ -157,106 +176,6 @@ const PRODUCTS = {
             { id: 'frosted', label: 'Frosted Finish', price: 15 }
         ],
         canvasRatio: 0.8
-    },
-    // ========== Table Cloths Category ==========
-    'stretch-table-throw': {
-        name: 'Stretch Table Throw',
-        category: 'tablecloths',
-        mockupType: 'stretch-table',
-        sizes: [
-            { label: '4ft Table', width: 4, height: 2.5, price: 89.99 },
-            { label: '6ft Table', width: 6, height: 2.5, price: 109.99 },
-            { label: '8ft Table', width: 8, height: 2.5, price: 139.99 }
-        ],
-        options: [
-            { id: 'open-back', label: 'Open Back', price: 0, default: true },
-            { id: 'closed-back', label: 'Closed Back', price: 20 }
-        ],
-        canvasRatio: 2.4,
-        description: 'Form-fitting stretch fabric that hugs the table'
-    },
-    'table-throw': {
-        name: 'Table Throw',
-        category: 'tablecloths',
-        mockupType: 'table-throw',
-        sizes: [
-            { label: '4ft Table', width: 4, height: 2.5, price: 69.99 },
-            { label: '6ft Table', width: 6, height: 2.5, price: 89.99 },
-            { label: '8ft Table', width: 8, height: 2.5, price: 119.99 }
-        ],
-        options: [
-            { id: '3-sided', label: '3-Sided (Open Back)', price: 0, default: true },
-            { id: '4-sided', label: '4-Sided (Full Coverage)', price: 25 }
-        ],
-        canvasRatio: 2.4,
-        description: 'Classic draped tablecloth with full print'
-    },
-    'table-runner': {
-        name: 'Table Runner',
-        category: 'tablecloths',
-        mockupType: 'table-runner',
-        sizes: [
-            { label: '24" x 72" (6ft)', width: 24, height: 72, price: 49.99 },
-            { label: '24" x 96" (8ft)', width: 24, height: 96, price: 59.99 },
-            { label: '30" x 72" (6ft)', width: 30, height: 72, price: 54.99 },
-            { label: '30" x 96" (8ft)', width: 30, height: 96, price: 64.99 }
-        ],
-        options: [
-            { id: 'standard', label: 'Standard Fabric', price: 0, default: true },
-            { id: 'premium', label: 'Premium Fabric', price: 15 }
-        ],
-        canvasRatio: 3,
-        description: 'Accent runner for tables with solid color base'
-    },
-    'solid-table-throw': {
-        name: 'Solid Color Table Throw',
-        category: 'tablecloths',
-        mockupType: 'solid-table',
-        sizes: [
-            { label: '4ft Table', width: 4, height: 2.5, price: 49.99 },
-            { label: '6ft Table', width: 6, height: 2.5, price: 59.99 },
-            { label: '8ft Table', width: 8, height: 2.5, price: 79.99 }
-        ],
-        options: [
-            { id: 'polyester', label: 'Polyester', price: 0, default: true },
-            { id: 'spandex', label: 'Spandex Stretch', price: 20 }
-        ],
-        solidColors: ['#000000', '#ffffff', '#1a365d', '#2c5282', '#2d3748', '#742a2a', '#22543d', '#744210'],
-        canvasRatio: 2.4,
-        description: 'Simple solid color tablecloth - no custom print'
-    },
-    'round-table-throw': {
-        name: 'Round Table Throw',
-        category: 'tablecloths',
-        mockupType: 'round-table',
-        sizes: [
-            { label: '48" Round (4ft)', width: 48, height: 48, price: 99.99 },
-            { label: '60" Round (5ft)', width: 60, height: 60, price: 119.99 },
-            { label: '72" Round (6ft)', width: 72, height: 72, price: 149.99 }
-        ],
-        options: [
-            { id: 'floor-length', label: 'Floor Length', price: 0, default: true },
-            { id: 'lap-length', label: 'Lap Length', price: -20 }
-        ],
-        canvasRatio: 1,
-        description: 'Full print tablecloth for round tables'
-    },
-    // Legacy table-cover redirect to stretch-table-throw
-    'table-cover': {
-        name: 'Table Covers',
-        category: 'tablecloths',
-        mockupType: 'table-throw',
-        sizes: [
-            { label: '4ft Table', width: 4, height: 2.5, price: 69.99 },
-            { label: '6ft Table', width: 6, height: 2.5, price: 89.99 },
-            { label: '8ft Table', width: 8, height: 2.5, price: 119.99 }
-        ],
-        options: [
-            { id: 'fitted', label: 'Fitted Style', price: 0, default: true },
-            { id: 'throw', label: 'Throw Style', price: 0 },
-            { id: 'stretch', label: 'Stretch Fabric', price: 30 }
-        ],
-        canvasRatio: 2.4
     },
     'popup-display': {
         name: 'Pop-up Displays',
@@ -1580,6 +1499,46 @@ function updateCanvasSize() {
     const previewSize = document.getElementById('previewSize');
     if (previewSize) {
         previewSize.textContent = state.selectedSize.label;
+    }
+
+    // Update safe area overlay based on product printSpecs
+    updateSafeAreaOverlay(canvasWidth, canvasHeight, productWidth, productHeight);
+}
+
+// ========== Update Safe Area Overlay ==========
+function updateSafeAreaOverlay(canvasWidth, canvasHeight, productWidth, productHeight) {
+    const safeArea = document.getElementById('safeArea');
+    if (!safeArea) return;
+
+    const product = PRODUCTS[state.currentProduct];
+    if (!product || !product.printSpecs || !product.printSpecs.safetyMargins) {
+        // Default safe area for products without specific specs
+        safeArea.style.inset = '8px';
+        return;
+    }
+
+    const margins = product.printSpecs.safetyMargins;
+
+    // Calculate pixel values based on canvas size and product dimensions
+    // Product dimensions are in inches, convert to canvas pixels
+    const pixelsPerInchX = canvasWidth / productWidth;
+    const pixelsPerInchY = canvasHeight / productHeight;
+
+    const topPx = Math.round(margins.top * pixelsPerInchY);
+    const bottomPx = Math.round(margins.bottom * pixelsPerInchY);
+    const leftPx = Math.round(margins.left * pixelsPerInchX);
+    const rightPx = Math.round(margins.right * pixelsPerInchX);
+
+    // Apply calculated margins to safe area element
+    safeArea.style.top = topPx + 'px';
+    safeArea.style.bottom = bottomPx + 'px';
+    safeArea.style.left = leftPx + 'px';
+    safeArea.style.right = rightPx + 'px';
+    safeArea.style.inset = ''; // Clear inset to use individual values
+
+    // Update label if margins are asymmetric
+    if (margins.top !== margins.bottom) {
+        safeArea.setAttribute('data-label', `Safe: Top ${margins.top}" / Bottom ${margins.bottom}"`);
     }
 }
 
