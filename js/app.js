@@ -1912,32 +1912,36 @@ function drawFeatherFlagClipPath(ctx, width, height) {
     ctx.beginPath();
 
     // The feather flag shape from B2Sign PDF (FeatherAngled_XL_SingleSided_PrintThru):
-    // - Right edge: straight vertical (pole side)
-    // - Bottom edge: straight horizontal (full width)
-    // - Top edge: SHORT horizontal line (about 15% of width from right)
-    // - Left edge: smooth CURVE from end of top edge to bottom-left corner
-    //   The curve bulges outward to the LEFT
+    // Analyzing the PDF shape carefully:
+    // - Right edge: straight vertical line (pole attachment side)
+    // - Bottom edge: straight horizontal line (full width)
+    // - Top edge: SHORT horizontal line (~12-15% of width)
+    // - Left edge: CURVED line from top-left down to bottom-left
+    //   The curve starts almost straight down, then gradually curves to the left
+    //   reaching maximum width at the bottom
 
-    const topWidthRatio = 0.15; // Top section is about 15% of total width
-    const topLeftX = width * (1 - topWidthRatio); // Where top edge ends
+    const topWidthRatio = 0.13; // Top is about 13% of total width
+    const topLeftX = width * (1 - topWidthRatio); // X position where top edge ends
 
-    // Start from top-right corner
+    // Start from top-right corner (pole side)
     ctx.moveTo(width, 0);
 
     // Top edge - short horizontal line going left
     ctx.lineTo(topLeftX, 0);
 
-    // Left curved edge - smooth curve from top-left area to bottom-left
-    // Using quadratic curve - control point bulges to the left
-    ctx.quadraticCurveTo(
-        -width * 0.08, height * 0.5,  // Control point: left of canvas at mid-height
-        0, height                      // End point: bottom-left corner
+    // Left curved edge using cubic bezier
+    // The curve goes from (topLeftX, 0) to (0, height)
+    // Control points create the characteristic feather flag curve
+    ctx.bezierCurveTo(
+        topLeftX * 0.3, height * 0.15,    // CP1: pulls curve down initially, slight left
+        0, height * 0.4,                   // CP2: at left edge, upper-middle area
+        0, height                          // End: bottom-left corner
     );
 
-    // Bottom edge - full width horizontal line
+    // Bottom edge - full width horizontal line to the right
     ctx.lineTo(width, height);
 
-    // Right edge - closes the path
+    // Right edge - closes the path (straight up to start)
     ctx.closePath();
 }
 
@@ -3431,52 +3435,52 @@ async function downloadFeatherFlagPDF() {
     showLoading(true);
 
     try {
-        const { PDFDocument } = PDFLib;
-
-        // Get size label to determine which template to use
+        const { jsPDF } = window.jspdf;
         const sizeLabel = state.selectedSize.label;
 
-        // For now, we only have XL templates - use XL Single Sided Print Thru
-        // Template URL - this will be served from the templates folder
-        const templateUrl = 'templates/FeatherAngled_XL_SingleSided_PrintThru.pdf';
-
-        // Fetch the original B2Sign PDF template
-        const templateResponse = await fetch(templateUrl);
-        if (!templateResponse.ok) {
-            throw new Error('Could not load PDF template');
+        // Get dimensions based on size (from B2Sign specs)
+        let graphicWidth, graphicHeight;
+        if (sizeLabel.includes('Small')) {
+            graphicWidth = 23.5;
+            graphicHeight = 78.5;
+        } else if (sizeLabel.includes('Medium')) {
+            graphicWidth = 24;
+            graphicHeight = 104;
+        } else if (sizeLabel.includes('Large') && !sizeLabel.includes('X-Large')) {
+            graphicWidth = 28;
+            graphicHeight = 138;
+        } else if (sizeLabel.includes('X-Large')) {
+            graphicWidth = 24;
+            graphicHeight = 183.5;
+        } else {
+            graphicWidth = 24;
+            graphicHeight = 104;
         }
-        const templateBytes = await templateResponse.arrayBuffer();
 
-        // Load the PDF with pdf-lib
-        const pdfDoc = await PDFDocument.load(templateBytes);
-        const pages = pdfDoc.getPages();
-        const page = pages[0];
+        // PDF page size with margins for header/footer
+        const pdfWidth = graphicWidth + 2;
+        const pdfHeight = graphicHeight + 4;
 
-        // Get page dimensions
-        const { width: pageWidth, height: pageHeight } = page.getSize();
+        // Create PDF
+        const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'in',
+            format: [pdfWidth, pdfHeight]
+        });
 
-        // The print area in the B2Sign template (XL size: 24" x 183.5")
-        // These values are approximate - the print area is the white region
-        // PDF coordinates: origin is bottom-left
-        // From analyzing the PDF, the print area seems to be positioned with some margin
-
-        // Create the design image at high resolution
+        // Create high-res canvas for the design
         const dpi = 150;
-        const graphicWidthInches = 24;
-        const graphicHeightInches = 183.5;
-
         const printCanvas = document.createElement('canvas');
-        printCanvas.width = graphicWidthInches * dpi;
-        printCanvas.height = graphicHeightInches * dpi;
+        printCanvas.width = graphicWidth * dpi;
+        printCanvas.height = graphicHeight * dpi;
         const printCtx = printCanvas.getContext('2d');
 
-        // Fill with white background first
-        printCtx.fillStyle = '#ffffff';
-        printCtx.fillRect(0, 0, printCanvas.width, printCanvas.height);
-
-        // Calculate scale to fit the design into the print canvas
+        // Scale for drawing
         const scaleX = printCanvas.width / canvas.width;
         const scaleY = printCanvas.height / canvas.height;
+
+        printCtx.fillStyle = '#ffffff';
+        printCtx.fillRect(0, 0, printCanvas.width, printCanvas.height);
 
         printCtx.save();
         printCtx.scale(scaleX, scaleY);
@@ -3537,7 +3541,6 @@ async function downloadFeatherFlagPDF() {
                 x = (canvas.width - width) / 2;
                 y = (canvas.height - height) / 2;
             }
-
             printCtx.drawImage(state.uploadedImage, x, y, width, height);
         }
 
@@ -3551,50 +3554,101 @@ async function downloadFeatherFlagPDF() {
 
         printCtx.restore();
 
-        // Convert canvas to PNG for embedding in PDF
-        const pngDataUrl = printCanvas.toDataURL('image/png');
-        const pngData = pngDataUrl.split(',')[1];
-        const pngBytes = Uint8Array.from(atob(pngData), c => c.charCodeAt(0));
+        // Add header text (same as B2Sign template)
+        pdf.setFontSize(14);
+        pdf.setTextColor(41, 98, 255); // Blue like B2Sign
+        pdf.text(`Feather Angled Flag ${sizeLabel}`, 0.5, 0.5);
+        pdf.setFontSize(11);
+        pdf.text('Single Sided Print Thru', 0.5, 0.75);
 
-        // Embed the image in the PDF
-        const designImage = await pdfDoc.embedPng(pngBytes);
+        pdf.setFontSize(9);
+        pdf.setTextColor(229, 57, 53); // Red
+        pdf.text('*CMYK Color Space', 0.5, 1.0);
 
-        // Calculate position in PDF coordinates (points, 72 per inch)
-        // The B2Sign template has the print area positioned within the page
-        // We need to place the image to align with the white print area
-        // Based on the PDF analysis, the print area starts approximately:
-        const marginLeft = 36; // ~0.5 inch from left
-        const marginBottom = 72; // ~1 inch from bottom
-        const printAreaWidth = graphicWidthInches * 72; // Convert inches to points
-        const printAreaHeight = graphicHeightInches * 72;
+        pdf.setFontSize(8);
+        pdf.setTextColor(0, 0, 0);
+        pdf.text('1. Design your artwork on the ARTWORK HERE layer', 0.5, 1.25);
+        pdf.text('2. Save as PDF or Export as JPG', 0.5, 1.4);
 
-        // Draw the design image on the page (behind the template lines)
-        // The image should fill the print area
-        page.drawImage(designImage, {
-            x: marginLeft,
-            y: marginBottom,
-            width: printAreaWidth,
-            height: printAreaHeight,
-        });
+        pdf.setFontSize(8);
+        pdf.setTextColor(229, 57, 53);
+        pdf.text('TIPS', 0.5, 1.65);
+        pdf.text('• Keep important text/images 2 inches from the edge of product', 0.5, 1.8);
+        pdf.setTextColor(255, 0, 0);
+        pdf.text('• Do not adjust the mask or artboards', 0.5, 1.95);
 
-        // Serialize the PDF
-        const pdfBytes = await pdfDoc.save();
+        // Position for the design area
+        const offsetX = 0.5;
+        const offsetY = 2.2;
 
-        // Download the PDF
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
+        // Add the design image first (behind the cut line)
+        const imgData = printCanvas.toDataURL('image/jpeg', 0.95);
+        pdf.addImage(imgData, 'JPEG', offsetX, offsetY, graphicWidth, graphicHeight);
+
+        // Draw feather flag cut line (red dashed) - matching B2Sign template shape
+        pdf.setDrawColor(229, 57, 53);
+        pdf.setLineWidth(0.015);
+        pdf.setLineDashPattern([0.1, 0.1], 0);
+
+        // Feather flag shape coordinates (matching the B2Sign PDF exactly)
+        const topWidthRatio = 0.13;
+        const topLeftX = graphicWidth * (1 - topWidthRatio);
+
+        // Right edge - straight vertical line (pole side)
+        pdf.line(offsetX + graphicWidth, offsetY, offsetX + graphicWidth, offsetY + graphicHeight);
+
+        // Bottom edge - full width
+        pdf.line(offsetX + graphicWidth, offsetY + graphicHeight, offsetX, offsetY + graphicHeight);
+
+        // Left curved edge - using line segments to approximate bezier curve
+        const segments = 80;
+        for (let i = 1; i <= segments; i++) {
+            const t = i / segments;
+            const prevT = (i - 1) / segments;
+
+            // Cubic bezier from (topLeftX, 0) to (0, graphicHeight)
+            // CP1: (topLeftX * 0.3, graphicHeight * 0.15)
+            // CP2: (0, graphicHeight * 0.4)
+            const cp1x = topLeftX * 0.3;
+            const cp1y = graphicHeight * 0.15;
+            const cp2x = 0;
+            const cp2y = graphicHeight * 0.4;
+
+            const t1 = 1 - t;
+            const prevT1 = 1 - prevT;
+
+            // Current point
+            const x = t1*t1*t1*topLeftX + 3*t1*t1*t*cp1x + 3*t1*t*t*cp2x + t*t*t*0;
+            const y = t1*t1*t1*0 + 3*t1*t1*t*cp1y + 3*t1*t*t*cp2y + t*t*t*graphicHeight;
+
+            // Previous point
+            const prevX = prevT1*prevT1*prevT1*topLeftX + 3*prevT1*prevT1*prevT*cp1x + 3*prevT1*prevT*prevT*cp2x + prevT*prevT*prevT*0;
+            const prevY = prevT1*prevT1*prevT1*0 + 3*prevT1*prevT1*prevT*cp1y + 3*prevT1*prevT*prevT*cp2y + prevT*prevT*prevT*graphicHeight;
+
+            pdf.line(offsetX + prevX, offsetY + prevY, offsetX + x, offsetY + y);
+        }
+
+        // Top edge - short horizontal line
+        pdf.line(offsetX + topLeftX, offsetY, offsetX + graphicWidth, offsetY);
+
+        // Reset line dash
+        pdf.setLineDashPattern([], 0);
+
+        // Footer
+        pdf.setFontSize(7);
+        pdf.setTextColor(100, 100, 100);
+        pdf.text(`Graphic Size: ${graphicWidth}" x ${graphicHeight}" | 150 DPI | CMYK`, 0.5, pdfHeight - 0.3);
+        pdf.text('Generated by PrintPilot - Based on B2Sign Template', 0.5, pdfHeight - 0.15);
+
+        // Download
         const productName = state.currentProduct.name.replace(/\s+/g, '_');
         const sizeName = sizeLabel.replace(/[^a-zA-Z0-9]/g, '_');
-        link.download = `${productName}_${sizeName}_PrintReady.pdf`;
-        link.click();
-        URL.revokeObjectURL(url);
+        pdf.save(`${productName}_${sizeName}_PrintReady.pdf`);
 
-        showSuccess(`Feather Flag PDF Downloaded! Based on official B2Sign template.`);
+        showSuccess(`Feather Flag PDF Downloaded! Size: ${graphicWidth}" x ${graphicHeight}"`);
     } catch (error) {
         console.error('PDF generation error:', error);
-        alert('Error generating PDF: ' + error.message + '. Please try again.');
+        alert('Error generating PDF: ' + error.message);
     } finally {
         showLoading(false);
     }
