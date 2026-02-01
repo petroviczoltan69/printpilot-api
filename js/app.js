@@ -1907,25 +1907,40 @@ function isFeatherFlagProduct() {
     return state.currentProduct.id === 'feather-flag';
 }
 
-// ========== Draw Feather Flag Shape (curved left edge) ==========
+// ========== Draw Feather Flag Shape (curved left edge - matches B2Sign template) ==========
 function drawFeatherFlagClipPath(ctx, width, height) {
     ctx.beginPath();
-    // Start from top-left
-    ctx.moveTo(0, 0);
-    // Top edge (straight)
-    ctx.lineTo(width, 0);
-    // Right edge (straight)
-    ctx.lineTo(width, height);
-    // Bottom edge (straight)
-    ctx.lineTo(0, height);
-    // Left edge (curved inward) - the feather curve
-    // Bezier curve from bottom-left to top-left with control points creating the feather shape
-    const curveDepth = width * 0.35; // How much the curve goes inward
+
+    // The feather flag shape from B2Sign PDF (FeatherAngled_XL_SingleSided_PrintThru):
+    // - TOP is NARROW (small horizontal line)
+    // - BOTTOM is WIDE (full width)
+    // - RIGHT edge is straight vertical (pole side)
+    // - LEFT edge is a large curve bulging outward
+
+    // Proportions from the PDF:
+    // - Top width is about 13% of full width
+    // - The curve starts at top-left and sweeps down to bottom-left
+
+    const topWidth = width * 0.13; // Top is narrow
+
+    // Start from top-right corner (pole side)
+    ctx.moveTo(width, 0);
+
+    // Top edge - short horizontal line to the left (narrow top)
+    ctx.lineTo(width - topWidth, 0);
+
+    // Left curved edge - sweeps from top-left down to bottom-left
+    // The curve bulges significantly to the left
     ctx.bezierCurveTo(
-        curveDepth, height * 0.7,  // First control point
-        curveDepth, height * 0.3,  // Second control point
-        0, 0                        // End point (top-left)
+        0, height * 0.25,          // First control point - far left, upper area
+        0, height * 0.75,          // Second control point - far left, lower area
+        0, height                   // End point - bottom-left corner
     );
+
+    // Bottom edge - full width horizontal line
+    ctx.lineTo(width, height);
+
+    // Right edge - straight up (closes the path back to start)
     ctx.closePath();
 }
 
@@ -3538,7 +3553,7 @@ async function downloadFeatherFlagPDF() {
         pdf.text(`Graphic Size: ${graphicWidth}" x ${graphicHeight}"`, 1, 1.1);
         pdf.text('Color Mode: CMYK | Resolution: 150 DPI', 1, 1.3);
 
-        // Draw feather flag outline (cut line)
+        // Draw feather flag outline (cut line) - matches B2Sign template
         pdf.setDrawColor(229, 57, 53); // Red
         pdf.setLineWidth(0.01);
         pdf.setLineDashPattern([0.1, 0.1], 0);
@@ -3547,48 +3562,69 @@ async function downloadFeatherFlagPDF() {
         const offsetX = 1;
         const offsetY = 1.6;
 
-        // Create bezier curve path for feather shape
-        // Right edge, bottom edge are straight
-        // Left edge has the curve
+        // Feather flag shape from B2Sign PDF (FeatherAngled_XL_SingleSided_PrintThru):
+        // - TOP is NARROW
+        // - BOTTOM is WIDE (full width)
+        // - RIGHT edge is straight (pole side)
+        // - LEFT edge has the curve
 
-        pdf.line(offsetX + graphicWidth, offsetY, offsetX + graphicWidth, offsetY + graphicHeight); // Right edge
-        pdf.line(offsetX + graphicWidth, offsetY + graphicHeight, offsetX, offsetY + graphicHeight); // Bottom edge
+        const topWidth = graphicWidth * 0.13; // Top is narrow
 
-        // Left curved edge (approximated with lines for PDF)
-        const curveDepth = graphicWidth * 0.35;
-        const segments = 50;
-        for (let i = 0; i <= segments; i++) {
+        // Right edge - straight vertical line (pole side)
+        pdf.line(offsetX + graphicWidth, offsetY, offsetX + graphicWidth, offsetY + graphicHeight);
+
+        // Bottom edge - full width horizontal line
+        pdf.line(offsetX + graphicWidth, offsetY + graphicHeight, offsetX, offsetY + graphicHeight);
+
+        // Left curved edge (approximated with line segments for PDF)
+        // Bezier curve from bottom-left (0, height) up to top-left area (topWidth from right, 0)
+        const segments = 60;
+
+        // Starting point is at bottom-left
+        const startX = 0;
+        const startY = graphicHeight;
+
+        // End point is at top (narrow part)
+        const endX = graphicWidth - topWidth;
+        const endY = 0;
+
+        // Control points for the bezier curve
+        const cp1x = 0;
+        const cp1y = graphicHeight * 0.75;
+        const cp2x = 0;
+        const cp2y = graphicHeight * 0.25;
+
+        for (let i = 1; i <= segments; i++) {
             const t = i / segments;
             const t1 = 1 - t;
-            // Bezier curve calculation
-            const x = t1 * t1 * t1 * 0 +
-                      3 * t1 * t1 * t * curveDepth +
-                      3 * t1 * t * t * curveDepth +
-                      t * t * t * 0;
-            const y = t1 * t1 * t1 * graphicHeight +
-                      3 * t1 * t1 * t * (graphicHeight * 0.7) +
-                      3 * t1 * t * t * (graphicHeight * 0.3) +
-                      t * t * t * 0;
+            const prevT = (i - 1) / segments;
+            const prevT1 = 1 - prevT;
 
-            if (i === 0) {
-                // Start point
-            } else {
-                const prevT = (i - 1) / segments;
-                const prevT1 = 1 - prevT;
-                const prevX = prevT1 * prevT1 * prevT1 * 0 +
-                              3 * prevT1 * prevT1 * prevT * curveDepth +
-                              3 * prevT1 * prevT * prevT * curveDepth +
-                              prevT * prevT * prevT * 0;
-                const prevY = prevT1 * prevT1 * prevT1 * graphicHeight +
-                              3 * prevT1 * prevT1 * prevT * (graphicHeight * 0.7) +
-                              3 * prevT1 * prevT * prevT * (graphicHeight * 0.3) +
-                              prevT * prevT * prevT * 0;
-                pdf.line(offsetX + prevX, offsetY + prevY, offsetX + x, offsetY + y);
-            }
+            // Current point on bezier curve
+            const x = t1 * t1 * t1 * startX +
+                      3 * t1 * t1 * t * cp1x +
+                      3 * t1 * t * t * cp2x +
+                      t * t * t * endX;
+            const y = t1 * t1 * t1 * startY +
+                      3 * t1 * t1 * t * cp1y +
+                      3 * t1 * t * t * cp2y +
+                      t * t * t * endY;
+
+            // Previous point on bezier curve
+            const prevX = prevT1 * prevT1 * prevT1 * startX +
+                          3 * prevT1 * prevT1 * prevT * cp1x +
+                          3 * prevT1 * prevT * prevT * cp2x +
+                          prevT * prevT * prevT * endX;
+            const prevY = prevT1 * prevT1 * prevT1 * startY +
+                          3 * prevT1 * prevT1 * prevT * cp1y +
+                          3 * prevT1 * prevT * prevT * cp2y +
+                          prevT * prevT * prevT * endY;
+
+            pdf.line(offsetX + prevX, offsetY + prevY, offsetX + x, offsetY + y);
         }
 
-        // Top edge
-        pdf.line(offsetX, offsetY, offsetX + graphicWidth, offsetY);
+        // Top edge - short horizontal line (narrow top)
+        pdf.line(offsetX + graphicWidth - topWidth, offsetY, offsetX + graphicWidth, offsetY);
 
         // Add the design image
         const imgData = printCanvas.toDataURL('image/jpeg', 0.95);
