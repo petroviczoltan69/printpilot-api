@@ -127,11 +127,48 @@ const PRODUCTS = {
         },
         canvasRatio: 0.407  // 33/81 ratio for default size
     },
+    'tent-canopy': {
+        name: 'Event Tent Canopy',
+        category: 'tradeshow',
+        sizes: [
+            { id: '10ft', label: '10ft x 10ft', width: 120, height: 120, price: 299.99, pdfTemplate: 'canopy.pdf' }
+        ],
+        options: [
+            { id: 'canopy-only', label: 'Canopy Graphic Only', price: 0, default: true },
+            { id: 'with-frame', label: 'Canopy + Frame', price: 399.99 },
+            { id: 'wheeled-bag', label: 'Wheeled Carrying Bag', price: 49.99 },
+            { id: 'sandbags', label: 'Sandbags (Set of 4)', price: 29.99 }
+        ],
+        printSpecs: {
+            materials: ['6 oz. Tent Fabric (600x600 denier)'],
+            method: 'Dye Sublimated',
+            safetyMargins: {
+                top: 0,
+                bottom: 0,
+                left: 0,
+                right: 0
+            },
+            fileFormats: ['JPEG', 'PDF'],
+            colorSpace: 'CMYK',
+            resolution: 150,
+            maxFileSize: 300,
+            bleed: 0,
+            notes: 'Submit artwork at ordered dimensions. No crop marks or bleeds required. Full seam-to-seam coverage.'
+        },
+        canvasRatio: 1  // Square canopy
+    },
     'feather-flag': {
         name: 'Feather Flag',
         category: 'flags',
         sizes: [
-            { label: 'X-Large (18ft)', width: 24, height: 183.5, price: 179.99 }
+            {
+                id: 'xl',
+                label: 'X-Large (18ft)',
+                width: 24,
+                height: 183.5,
+                price: 179.99,
+                pdfTemplate: 'FeatherAngled_XL_SingleSided_PrintThru.pdf'
+            }
         ],
         options: [
             { id: 'ground-stake', label: 'Ground Stake (Soft ground)', price: 0, default: true },
@@ -1073,6 +1110,8 @@ function resetDesignState() {
     state.originalImageData = null;
     state.backgroundImage = null;
     state.backgroundType = 'solid';
+    // Reset SVG template for new product
+    currentProductTemplate = null;
     // AI background reset
     state.aiBgScale = 100;
     state.aiBgX = 50;
@@ -1460,16 +1499,20 @@ function goToStep(step) {
     // Step-specific actions
     if (step === 3) {
         showDesignControls();
-        updateCanvasSize();
 
-        // Pre-load feather flag template and overlay if needed
-        if (isFeatherFlagProduct()) {
-            console.log('Pre-loading feather flag template and overlay...');
-            loadFeatherFlagTemplate();
-            loadFeatherFlagOverlay();
+        // Pre-load SVG template for any product that has one
+        if (state.currentProduct && state.selectedSize) {
+            const productId = state.currentProduct.id;
+            const sizeId = state.selectedSize.id || 'xl';
+            console.log('Pre-loading template for:', productId, sizeId);
+            loadProductTemplate(productId, sizeId).then(() => {
+                updateCanvasSize();
+                updateCanvas();
+            });
+        } else {
+            updateCanvasSize();
+            updateCanvas();
         }
-
-        updateCanvas();
     }
 
     if (step === 4) {
@@ -1528,13 +1571,14 @@ function updateCanvasSize() {
     // Use device pixel ratio for sharper rendering on high-DPI displays
     const dpr = window.devicePixelRatio || 1;
 
-    // For feather flags, use SVG template aspect ratio (1944 x 13500)
-    const isFeatherFlag = state.currentProduct === 'feather-flag';
-    if (isFeatherFlag) {
-        aspectRatio = 1944 / 13500;
+    // If product has SVG template loaded, use its viewBox aspect ratio
+    // This ensures preview matches SVG exactly
+    if (currentProductTemplate && currentProductTemplate.viewBox) {
+        const vb = currentProductTemplate.viewBox;
+        aspectRatio = vb.width / vb.height;
     }
 
-    // For very narrow products like feather flags, ensure minimum width for quality
+    // For very narrow products (like feather flags), ensure minimum width for quality
     const isVeryNarrow = aspectRatio < 0.2;
 
     // Get preview container width for responsive sizing
@@ -1545,9 +1589,10 @@ function updateCanvasSize() {
     let displayWidth, displayHeight;
 
     if (isVeryNarrow) {
-        // Feather flags: limit by max height, calculate width from aspect ratio
-        displayHeight = maxDisplayHeight;
-        displayWidth = displayHeight * aspectRatio;
+        // Feather flags: use full width, let height extend naturally
+        // CSS max-height will handle overflow in the container
+        displayWidth = maxDisplayWidth;
+        displayHeight = displayWidth / aspectRatio;
     } else if (aspectRatio >= 1) {
         // Landscape or square
         displayWidth = maxDisplayWidth;
@@ -1950,7 +1995,13 @@ function addTextLayer() {
     showSuccess('Text added!');
 }
 
-// ========== Check if Feather Flag Product ==========
+// ========== Check if Product has SVG Template ==========
+function hasProductSVGTemplate() {
+    // Check if current product has a loaded SVG template
+    return currentProductTemplate && currentProductTemplate.image;
+}
+
+// Legacy function - checks specifically for feather flag
 function isFeatherFlagProduct() {
     if (!state.currentProduct) return false;
     return state.currentProduct.id === 'feather-flag';
@@ -1962,6 +2013,64 @@ let featherFlagTemplateLoading = false;
 let featherFlagPdfBytes = null;
 let featherFlagOverlayImage = null;
 let featherFlagOverlayLoading = false;
+
+// ========== Universal PDF Template Cache ==========
+// Cache for loaded PDF templates to avoid re-fetching
+const pdfTemplateCache = new Map();
+
+// Get PDF template path for current product/size
+// Now reads from products.json config instead of hardcoded map
+function getPdfTemplatePath(productId, sizeId) {
+    // First check products.json config (via selectedSize)
+    if (state.selectedSize && state.selectedSize.pdfTemplate) {
+        return `/templates/${state.selectedSize.pdfTemplate}`;
+    }
+
+    // Fallback to hardcoded map for backwards compatibility
+    const templateMap = {
+        'feather-flag': {
+            'xl': 'FeatherAngled_XL_SingleSided_PrintThru.pdf'
+        },
+        'tent-canopy': {
+            '10ft': 'canopy.pdf'
+        }
+    };
+
+    const productTemplates = templateMap[productId];
+    if (productTemplates && productTemplates[sizeId]) {
+        return `/templates/${productTemplates[sizeId]}`;
+    }
+    return null;
+}
+
+// Load PDF template bytes (with caching)
+async function loadPdfTemplate(templatePath) {
+    if (pdfTemplateCache.has(templatePath)) {
+        return pdfTemplateCache.get(templatePath).slice(0);
+    }
+
+    const urls = [
+        templatePath,
+        templatePath.replace('/templates/', '/'),
+        `/public${templatePath}`
+    ];
+
+    for (const url of urls) {
+        try {
+            const response = await fetch(url);
+            if (response.ok) {
+                const bytes = await response.arrayBuffer();
+                pdfTemplateCache.set(templatePath, bytes);
+                console.log('PDF template loaded from:', url, 'Size:', bytes.byteLength);
+                return bytes.slice(0);
+            }
+        } catch (e) {
+            console.log('Failed to fetch PDF from:', url);
+        }
+    }
+
+    return null;
+}
 
 // ========== Template Engine Integration ==========
 // Initialize the template engine for products with SVG templates
@@ -2252,27 +2361,47 @@ function createFeatherFlagClipPath(ctx, scale, offsetX, offsetY) {
     ctx.closePath();
 }
 
-// ========== Draw Feather Flag Canvas using PNG Overlay ==========
-async function drawFeatherFlagCanvas() {
-    // Load both overlay and PDF template
-    const [overlay, template] = await Promise.all([
-        loadFeatherFlagOverlay(),
-        loadFeatherFlagTemplate()
-    ]);
+// ========== Draw Product Canvas with SVG Template ==========
+// Universal function for any product with SVG template
+async function drawProductWithSVGCanvas() {
+    // Use loaded template from currentProductTemplate (set by TemplateEngine)
+    if (currentProductTemplate && currentProductTemplate.image) {
+        drawProductWithSVGOverlay(currentProductTemplate.image);
+        return;
+    }
 
-    if (overlay) {
-        // Use PNG overlay for better quality preview
-        drawFeatherFlagWithOverlay(overlay);
-    } else if (template) {
-        // Fallback to PDF template
-        drawFeatherFlagWithPDFTemplate(template);
-    } else {
-        // Last resort: draw with approximated shape
+    // Fallback: try to load template if not already loaded
+    if (state.currentProduct && state.selectedSize) {
+        const productId = typeof state.currentProduct === 'string'
+            ? state.currentProduct
+            : state.currentProduct.id;
+        const sizeId = state.selectedSize.id || 'xl';
+
+        const template = await loadProductTemplate(productId, sizeId);
+        if (template && template.image) {
+            drawProductWithSVGOverlay(template.image);
+            return;
+        }
+    }
+
+    // Legacy fallback for feather flag
+    if (isFeatherFlagProduct()) {
         drawFeatherFlagFallback();
     }
 }
 
-function drawFeatherFlagWithOverlay(overlay) {
+// ========== Draw Feather Flag Canvas using PNG Overlay (Legacy) ==========
+async function drawFeatherFlagCanvas() {
+    // Use universal function
+    await drawProductWithSVGCanvas();
+}
+
+/**
+ * Universal function to draw any product with SVG overlay template
+ * Works for feather flags, teardrop flags, and any future SVG-based products
+ * @param {Image} overlay - The SVG template loaded as an Image
+ */
+function drawProductWithSVGOverlay(overlay) {
     // Get display dimensions (stored by updateCanvasSize)
     const displayWidth = canvas.displayWidth || parseFloat(canvas.style.width) || 200;
     const displayHeight = canvas.displayHeight || parseFloat(canvas.style.height) || 1400;
@@ -2280,15 +2409,13 @@ function drawFeatherFlagWithOverlay(overlay) {
     // Clear canvas (use display dimensions since ctx is already scaled)
     ctx.clearRect(0, 0, displayWidth, displayHeight);
 
-    // SVG has viewBox 1944 x 13500
-    // Scale SVG to fit canvas WIDTH, height follows proportionally
-    const svgAspectRatio = 1944 / 13500;
+    // Use canvas dimensions directly - they match SVG aspect ratio from template
     const drawWidth = displayWidth;
-    const drawHeight = displayWidth / svgAspectRatio;
+    const drawHeight = displayHeight;
     const drawX = 0;
     const drawY = 0;
 
-    // STEP 1: Draw user's artwork (PNG overlay has transparent hole where artwork shows)
+    // STEP 1: Draw user's artwork (SVG overlay has transparent hole where artwork shows)
 
     // Draw background filling the draw area
     if (state.backgroundType === 'solid') {
@@ -2358,8 +2485,13 @@ function drawFeatherFlagWithOverlay(overlay) {
         ctx.drawImage(state.logoImage, logoX, logoY, logoSize, logoSize);
     }
 
-    // STEP 2: Draw PNG overlay on top - transparent hole shows artwork beneath
+    // STEP 2: Draw SVG overlay on top - transparent hole shows artwork beneath
     ctx.drawImage(overlay, drawX, drawY, drawWidth, drawHeight);
+}
+
+// Legacy alias for backwards compatibility
+function drawFeatherFlagWithOverlay(overlay) {
+    drawProductWithSVGOverlay(overlay);
 }
 
 // Fallback using PDF template rendering
@@ -2531,9 +2663,9 @@ function updateCanvas() {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Check if this is a feather flag product
-    if (isFeatherFlagProduct()) {
-        drawFeatherFlagCanvas();
+    // Check if product has SVG template (feather flags, teardrop flags, etc.)
+    if (hasProductSVGTemplate()) {
+        drawProductWithSVGCanvas();
     }
     // Check if this is a table cloth product that needs mockup preview
     else if (isTableClothProduct() && (state.designType === 'photo' || state.designType === 'logo')) {
@@ -3955,9 +4087,10 @@ function handleAddToCart() {
     }, 1500);
 }
 
-// ========== Download Feather Flag PDF ==========
-// Uses original B2Sign CMYK template and inserts artwork into ARTWORK HERE layer
-async function downloadFeatherFlagPDF() {
+// ========== Universal Download PDF ==========
+// Preserves original PDF template structure and embeds artwork into ARTWORK HERE layer
+// Maintains CMYK color space from original template
+async function downloadPDF() {
     if (!canvas || !state.currentProduct || !state.selectedSize) {
         alert('Please complete your design first.');
         return;
@@ -3967,148 +4100,165 @@ async function downloadFeatherFlagPDF() {
 
     try {
         const { PDFDocument } = PDFLib;
+        const productId = state.currentProduct.id;
+        const sizeId = state.selectedSize.id || '10ft';
         const sizeLabel = state.selectedSize.label;
 
-        // Load the original B2Sign CMYK PDF template
-        let pdfBytes;
-        if (featherFlagPdfBytes) {
-            pdfBytes = featherFlagPdfBytes.slice(0);
-        } else {
-            let response = null;
-            for (const url of FEATHER_FLAG_TEMPLATE_URLS) {
-                try {
-                    response = await fetch(url);
-                    if (response.ok) break;
-                } catch (e) {
-                    console.log('Failed to fetch PDF from:', url);
-                }
+        console.log('Download PDF for:', productId, sizeId, sizeLabel);
+
+        // Try to load PDF template
+        const templatePath = getPdfTemplatePath(productId, sizeId);
+        let pdfBytes = null;
+        let templateWidthPt = null;
+        let templateHeightPt = null;
+
+        if (templatePath) {
+            pdfBytes = await loadPdfTemplate(templatePath);
+            if (pdfBytes) {
+                const templateDoc = await PDFDocument.load(pdfBytes);
+                const templatePage = templateDoc.getPages()[0];
+                const templateSize = templatePage.getSize();
+                templateWidthPt = templateSize.width;
+                templateHeightPt = templateSize.height;
+                console.log('PDF template loaded:', templatePath);
+                console.log('PDF template dimensions:', templateWidthPt, 'x', templateHeightPt, 'pt');
+                console.log('PDF template dimensions:', (templateWidthPt / 72).toFixed(2), 'x', (templateHeightPt / 72).toFixed(2), 'inches');
             }
-            if (!response || !response.ok) {
-                throw new Error('Could not load B2Sign PDF template.');
-            }
-            pdfBytes = await response.arrayBuffer();
         }
 
-        // Load the CMYK PDF template
-        const pdfDoc = await PDFDocument.load(pdfBytes);
-        const pages = pdfDoc.getPages();
-        const page = pages[0];
+        // Use template dimensions if available, otherwise fall back to config
+        let widthInches, heightInches;
 
-        // Get page dimensions (in points)
-        const { width: pageWidth, height: pageHeight } = page.getSize();
-        console.log('B2Sign template size:', pageWidth, 'x', pageHeight, 'points');
-
-        // Create high-res canvas for artwork at 150 DPI
-        const dpi = 150;
-        const pageWidthInches = pageWidth / 72;
-        const pageHeightInches = pageHeight / 72;
-
-        const printCanvas = document.createElement('canvas');
-        printCanvas.width = Math.round(pageWidthInches * dpi);
-        printCanvas.height = Math.round(pageHeightInches * dpi);
-        const printCtx = printCanvas.getContext('2d');
-
-        console.log('Artwork canvas size:', printCanvas.width, 'x', printCanvas.height);
-
-        // Draw background filling entire canvas
-        if (state.backgroundType === 'solid') {
-            const color = document.getElementById('bgColor')?.value || '#ffffff';
-            printCtx.fillStyle = color;
-            printCtx.fillRect(0, 0, printCanvas.width, printCanvas.height);
-        } else if (state.backgroundType === 'gradient') {
-            const color1 = document.getElementById('gradColor1')?.value || '#667eea';
-            const color2 = document.getElementById('gradColor2')?.value || '#764ba2';
-            let gradient;
-            switch (state.gradDirection) {
-                case 'horizontal':
-                    gradient = printCtx.createLinearGradient(0, 0, printCanvas.width, 0);
-                    break;
-                case 'vertical':
-                    gradient = printCtx.createLinearGradient(0, 0, 0, printCanvas.height);
-                    break;
-                case 'diagonal':
-                    gradient = printCtx.createLinearGradient(0, 0, printCanvas.width, printCanvas.height);
-                    break;
-                case 'radial':
-                    gradient = printCtx.createRadialGradient(
-                        printCanvas.width / 2, printCanvas.height / 2, 0,
-                        printCanvas.width / 2, printCanvas.height / 2, Math.max(printCanvas.width, printCanvas.height) / 2
-                    );
-                    break;
-                default:
-                    gradient = printCtx.createLinearGradient(0, 0, printCanvas.width, 0);
-            }
-            gradient.addColorStop(0, color1);
-            gradient.addColorStop(1, color2);
-            printCtx.fillStyle = gradient;
-            printCtx.fillRect(0, 0, printCanvas.width, printCanvas.height);
-        }
-
-        // Draw uploaded image
-        if (state.uploadedImage) {
-            const imgRatio = state.uploadedImage.width / state.uploadedImage.height;
-            const canvasRatio = printCanvas.width / printCanvas.height;
-            let x, y, width, height;
-
-            if (state.photoFitMode === 'cover') {
-                if (imgRatio > canvasRatio) {
-                    height = printCanvas.height * (state.photoImageScale / 100);
-                    width = height * imgRatio;
-                } else {
-                    width = printCanvas.width * (state.photoImageScale / 100);
-                    height = width / imgRatio;
-                }
-                x = (printCanvas.width - width) * state.photoImageX;
-                y = (printCanvas.height - height) * state.photoImageY;
+        if (templateWidthPt && templateHeightPt) {
+            widthInches = templateWidthPt / 72;
+            heightInches = templateHeightPt / 72;
+        } else if (state.selectedSize.dimensions) {
+            const dimensions = state.selectedSize.dimensions;
+            if (dimensions.unit === 'inches' || dimensions.unit === 'in') {
+                widthInches = dimensions.width;
+                heightInches = dimensions.height;
+            } else if (dimensions.unit === 'ft' || dimensions.unit === 'feet') {
+                widthInches = dimensions.width * 12;
+                heightInches = dimensions.height * 12;
             } else {
-                width = printCanvas.width * 0.9 * (state.photoImageScale / 100);
-                height = width / imgRatio;
-                x = (printCanvas.width - width) / 2;
-                y = (printCanvas.height - height) / 2;
+                widthInches = dimensions.width;
+                heightInches = dimensions.height;
             }
-            printCtx.drawImage(state.uploadedImage, x, y, width, height);
+        } else {
+            const width = state.selectedSize.width;
+            const height = state.selectedSize.height;
+            if (width <= 20 && height <= 20) {
+                widthInches = width * 12;
+                heightInches = height * 12;
+            } else {
+                widthInches = width;
+                heightInches = height;
+            }
         }
 
-        // Draw logo if in logo mode
-        if (state.designType === 'logo' && state.logoImage) {
-            const logoSize = Math.min(printCanvas.width, printCanvas.height) * 0.6;
-            const logoX = (printCanvas.width - logoSize) / 2;
-            const logoY = (printCanvas.height - logoSize) / 2;
-            printCtx.drawImage(state.logoImage, logoX, logoY, logoSize, logoSize);
+        // Get DPI from print config (default 150 for large format)
+        const dpi = state.selectedSize.print?.dpi ||
+                    state.currentProduct.printSpecs?.resolution ||
+                    150;
+
+        // Calculate print resolution in pixels
+        let printWidth = Math.round(widthInches * dpi);
+        let printHeight = Math.round(heightInches * dpi);
+
+        // Limit max canvas size to prevent browser crash
+        const maxDimension = 8000;
+        if (printWidth > maxDimension || printHeight > maxDimension) {
+            const scale = maxDimension / Math.max(printWidth, printHeight);
+            printWidth = Math.round(printWidth * scale);
+            printHeight = Math.round(printHeight * scale);
+            console.log(`Canvas size limited to ${printWidth} x ${printHeight}`);
         }
 
-        // Convert canvas to PNG (better quality for print)
+        console.log(`Print: ${widthInches}" x ${heightInches}" @ ${dpi} DPI = ${printWidth} x ${printHeight} px`);
+
+        // Create high-resolution canvas for artwork
+        const printCanvas = document.createElement('canvas');
+        printCanvas.width = printWidth;
+        printCanvas.height = printHeight;
+        const printCtx = printCanvas.getContext('2d');
+        printCtx.imageSmoothingEnabled = true;
+        printCtx.imageSmoothingQuality = 'high';
+
+        // Calculate scale factor
+        const scaleX = printWidth / canvas.width;
+        const scaleY = printHeight / canvas.height;
+
+        // Render artwork at full print resolution
+        await renderArtworkToCanvas(printCtx, printWidth, printHeight, scaleX, scaleY);
+
+        // Get image data for PDF embedding
         const pngDataUrl = printCanvas.toDataURL('image/png');
         const pngData = pngDataUrl.split(',')[1];
         const pngImageBytes = Uint8Array.from(atob(pngData), c => c.charCodeAt(0));
 
-        // Embed the artwork image into the CMYK PDF
-        const artworkImage = await pdfDoc.embedPng(pngImageBytes);
+        let pdfDoc;
+        let page;
+        const pageWidthPt = templateWidthPt || (widthInches * 72);
+        const pageHeightPt = templateHeightPt || (heightInches * 72);
 
-        // Draw artwork filling entire page (behind existing template mask)
-        // pdf-lib draws on top, but template mask layer stays visible
-        page.drawImage(artworkImage, {
-            x: 0,
-            y: 0,
-            width: pageWidth,
-            height: pageHeight,
-        });
+        // === CREATE ARTWORK PDF ===
+        // Generate clean artwork PDF with correct dimensions from template
+        // User can place this in the ARTWORK HERE layer in Illustrator
+        {
+            console.log('Creating artwork PDF with template dimensions...');
 
-        // Save the modified CMYK PDF
+            pdfDoc = await PDFDocument.create();
+            page = pdfDoc.addPage([pageWidthPt, pageHeightPt]);
+
+            // Embed artwork as PNG
+            const artworkImage = await pdfDoc.embedPng(pngImageBytes);
+
+            // Draw artwork filling the entire page
+            page.drawImage(artworkImage, {
+                x: 0,
+                y: 0,
+                width: pageWidthPt,
+                height: pageHeightPt,
+            });
+
+            console.log('Artwork PDF created:', pageWidthPt, 'x', pageHeightPt, 'points');
+            console.log('Place this artwork in the ARTWORK HERE layer of the template');
+        }
+
+        if (false) { // Template merging disabled - pdf-lib can't preserve OCG layers
+            // === CREATE NEW PDF (no template) ===
+            console.log('No template available, creating new PDF');
+            pdfDoc = await PDFDocument.create();
+            page = pdfDoc.addPage([pageWidthPt, pageHeightPt]);
+
+            const artworkImage = await pdfDoc.embedPng(pngImageBytes);
+            page.drawImage(artworkImage, {
+                x: 0,
+                y: 0,
+                width: pageWidthPt,
+                height: pageHeightPt,
+            });
+        }
+
+        console.log('Final PDF:', pageWidthPt, 'x', pageHeightPt, 'points');
+
+        // Save and download
         const modifiedPdfBytes = await pdfDoc.save();
-
-        // Download
         const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         const productName = state.currentProduct.name.replace(/\s+/g, '_');
         const sizeName = sizeLabel.replace(/[^a-zA-Z0-9]/g, '_');
-        link.download = `${productName}_${sizeName}_CMYK_PrintReady.pdf`;
+        link.download = `${productName}_${sizeName}_${widthInches}x${heightInches}in_ARTWORK.pdf`;
         link.click();
         URL.revokeObjectURL(url);
 
-        showSuccess(`CMYK PDF Downloaded! Using B2Sign template with your artwork.`);
+        const successMsg = pdfBytes
+            ? `PDF Downloaded with template! ${widthInches}" x ${heightInches}"`
+            : `PDF Downloaded! ${widthInches}" x ${heightInches}" @ ${dpi} DPI`;
+        showSuccess(successMsg);
+
     } catch (error) {
         console.error('PDF generation error:', error);
         alert('Error generating PDF: ' + error.message);
@@ -4117,367 +4267,249 @@ async function downloadFeatherFlagPDF() {
     }
 }
 
-// ========== Download PDF ==========
-async function downloadPDF() {
-    if (!canvas || !state.currentProduct || !state.selectedSize) {
-        alert('Please complete your design first.');
-        return;
+// ========== Render Artwork to Canvas at Full Print Resolution ==========
+// This redraws the current design at the specified resolution
+async function renderArtworkToCanvas(ctx, width, height, scaleX, scaleY) {
+    console.log('renderArtworkToCanvas called:', { width, height, scaleX, scaleY });
+    console.log('state.backgroundType:', state.backgroundType);
+    console.log('state.designType:', state.designType);
+    console.log('state.gradDirection:', state.gradDirection);
+
+    // Draw background
+    if (state.backgroundType === 'solid') {
+        const color = document.getElementById('bgColor')?.value || '#ffffff';
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, width, height);
+    } else if (state.backgroundType === 'gradient') {
+        const color1 = document.getElementById('gradColor1')?.value || '#667eea';
+        const color2 = document.getElementById('gradColor2')?.value || '#764ba2';
+        let gradient;
+        switch (state.gradDirection) {
+            case 'horizontal':
+                gradient = ctx.createLinearGradient(0, 0, width, 0);
+                break;
+            case 'vertical':
+                gradient = ctx.createLinearGradient(0, 0, 0, height);
+                break;
+            case 'diagonal':
+                gradient = ctx.createLinearGradient(0, 0, width, height);
+                break;
+            case 'radial':
+                gradient = ctx.createRadialGradient(
+                    width / 2, height / 2, 0,
+                    width / 2, height / 2, Math.max(width, height) / 2
+                );
+                break;
+            default:
+                gradient = ctx.createLinearGradient(0, 0, width, 0);
+        }
+        gradient.addColorStop(0, color1);
+        gradient.addColorStop(1, color2);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+    } else if (state.backgroundType === 'ai' && state.backgroundImage) {
+        drawAIBackground(ctx, state.backgroundImage, width, height, state.aiBgScale, state.aiBgX, state.aiBgY);
+    } else {
+        // Default white background
+        ctx.fillStyle = state.patternBgColor || '#ffffff';
+        ctx.fillRect(0, 0, width, height);
     }
 
-    // Check if this is a feather flag - use special PDF function
-    if (isFeatherFlagProduct()) {
-        return downloadFeatherFlagPDF();
-    }
+    // Draw based on design type
+    if (state.designType === 'photo') {
+        // Draw uploaded image
+        if (state.uploadedImage) {
+            const imgRatio = state.uploadedImage.width / state.uploadedImage.height;
+            const canvasRatio = width / height;
+            let x, y, imgWidth, imgHeight;
 
-    showLoading(true);
-
-    try {
-        // Create a high-resolution canvas for better PDF quality
-        // 4x scale gives us ~2000x1000 base canvas -> 8000x4000 output
-        // This provides good quality for large format prints
-        const scaleFactor = 4;
-        const hiResCanvas = document.createElement('canvas');
-        hiResCanvas.width = canvas.width * scaleFactor;
-        hiResCanvas.height = canvas.height * scaleFactor;
-        const hiResCtx = hiResCanvas.getContext('2d');
-
-        // Enable high quality image rendering
-        hiResCtx.imageSmoothingEnabled = true;
-        hiResCtx.imageSmoothingQuality = 'high';
-
-        // Scale and redraw at higher resolution
-        hiResCtx.scale(scaleFactor, scaleFactor);
-
-        // Redraw the design at higher resolution
-        // Background
-        hiResCtx.fillStyle = state.patternBgColor || '#ffffff';
-        hiResCtx.fillRect(0, 0, canvas.width, canvas.height);
-
-        if (state.designType === 'photo') {
-            // Redraw photo mode content (same as drawPhotoMode but on hiResCtx)
-            // Background
-            if (state.backgroundType === 'solid') {
-                const color = document.getElementById('bgColor')?.value || '#ffffff';
-                hiResCtx.fillStyle = color;
-                hiResCtx.fillRect(0, 0, canvas.width, canvas.height);
-            } else if (state.backgroundType === 'gradient') {
-                const color1 = document.getElementById('gradColor1')?.value || '#667eea';
-                const color2 = document.getElementById('gradColor2')?.value || '#764ba2';
-                let gradient;
-                switch (state.gradDirection) {
-                    case 'horizontal':
-                        gradient = hiResCtx.createLinearGradient(0, 0, canvas.width, 0);
-                        break;
-                    case 'vertical':
-                        gradient = hiResCtx.createLinearGradient(0, 0, 0, canvas.height);
-                        break;
-                    case 'diagonal':
-                        gradient = hiResCtx.createLinearGradient(0, 0, canvas.width, canvas.height);
-                        break;
-                    case 'radial':
-                        gradient = hiResCtx.createRadialGradient(
-                            canvas.width / 2, canvas.height / 2, 0,
-                            canvas.width / 2, canvas.height / 2, Math.max(canvas.width, canvas.height) / 2
-                        );
-                        break;
-                    default:
-                        gradient = hiResCtx.createLinearGradient(0, 0, canvas.width, 0);
-                }
-                gradient.addColorStop(0, color1);
-                gradient.addColorStop(1, color2);
-                hiResCtx.fillStyle = gradient;
-                hiResCtx.fillRect(0, 0, canvas.width, canvas.height);
-            } else if (state.backgroundType === 'ai' && state.backgroundImage) {
-                drawAIBackground(hiResCtx, state.backgroundImage, canvas.width, canvas.height, state.aiBgScale, state.aiBgX, state.aiBgY);
-            }
-
-            // Draw uploaded image with position and scale
-            if (state.uploadedImage) {
-                let x, y, width, height;
-                const imgRatio = state.uploadedImage.width / state.uploadedImage.height;
-                const canvasRatio = canvas.width / canvas.height;
-
-                if (state.photoFitMode === 'cover') {
-                    if (imgRatio > canvasRatio) {
-                        height = canvas.height * (state.photoImageScale / 100);
-                        width = height * imgRatio;
-                    } else {
-                        width = canvas.width * (state.photoImageScale / 100);
-                        height = width / imgRatio;
-                    }
-                    x = (canvas.width - width) * state.photoImageX;
-                    y = (canvas.height - height) * state.photoImageY;
-                } else if (state.photoFitMode === 'contain') {
-                    if (imgRatio > canvasRatio) {
-                        width = canvas.width * 0.9 * (state.photoImageScale / 100);
-                        height = width / imgRatio;
-                    } else {
-                        height = canvas.height * 0.9 * (state.photoImageScale / 100);
-                        width = height * imgRatio;
-                    }
-                    x = (canvas.width - width) / 2 + (state.photoImageX - 0.5) * canvas.width * 0.5;
-                    y = (canvas.height - height) / 2 + (state.photoImageY - 0.5) * canvas.height * 0.5;
+            if (state.photoFitMode === 'cover') {
+                if (imgRatio > canvasRatio) {
+                    imgHeight = height * (state.photoImageScale / 100);
+                    imgWidth = imgHeight * imgRatio;
                 } else {
-                    width = state.uploadedImage.width * (state.photoImageScale / 100) * 0.5;
-                    height = state.uploadedImage.height * (state.photoImageScale / 100) * 0.5;
-                    x = canvas.width * state.photoImageX - width / 2;
-                    y = canvas.height * state.photoImageY - height / 2;
+                    imgWidth = width * (state.photoImageScale / 100);
+                    imgHeight = imgWidth / imgRatio;
                 }
-                hiResCtx.drawImage(state.uploadedImage, x, y, width, height);
+                x = (width - imgWidth) * state.photoImageX;
+                y = (height - imgHeight) * state.photoImageY;
+            } else if (state.photoFitMode === 'contain') {
+                if (imgRatio > canvasRatio) {
+                    imgWidth = width * 0.9 * (state.photoImageScale / 100);
+                    imgHeight = imgWidth / imgRatio;
+                } else {
+                    imgHeight = height * 0.9 * (state.photoImageScale / 100);
+                    imgWidth = imgHeight * imgRatio;
+                }
+                x = (width - imgWidth) / 2 + (state.photoImageX - 0.5) * width * 0.5;
+                y = (height - imgHeight) / 2 + (state.photoImageY - 0.5) * height * 0.5;
+            } else {
+                imgWidth = state.uploadedImage.width * (state.photoImageScale / 100) * 0.5 * scaleX;
+                imgHeight = state.uploadedImage.height * (state.photoImageScale / 100) * 0.5 * scaleY;
+                x = width * state.photoImageX - imgWidth / 2;
+                y = height * state.photoImageY - imgHeight / 2;
+            }
+            ctx.drawImage(state.uploadedImage, x, y, imgWidth, imgHeight);
+        }
+
+        // Draw text layers (scaled to print resolution)
+        state.photoTextLayers.forEach((layer, index) => {
+            if (!layer.enabled || !layer.text.trim()) return;
+
+            const scaledSize = layer.size * Math.min(scaleX, scaleY);
+            ctx.font = `bold ${scaledSize}px ${layer.font}`;
+            ctx.fillStyle = layer.color;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const textX = width * layer.x;
+            const textY = height * layer.y;
+
+            ctx.fillText(layer.text, textX, textY);
+        });
+
+    } else if (state.designType === 'logo' && state.logoImage) {
+        // Logo mode - render patterns at full resolution
+        const logoWidth = state.logoSize * scaleX;
+        const logoHeight = (state.logoImage.height / state.logoImage.width) * logoWidth;
+        const spacing = state.patternSpacing * Math.min(scaleX, scaleY);
+        const offsetX = (state.patternOffsetX || 0) * scaleX;
+        const offsetY = (state.patternOffsetY || 0) * scaleY;
+        const rotation = (state.patternRotation || 0) * Math.PI / 180;
+
+        if (state.patternStyle === 'single') {
+            // Single logo centered
+            const singleWidth = state.singleLogoSize * scaleX;
+            const singleHeight = (state.logoImage.height / state.logoImage.width) * singleWidth;
+            let textOffset = 0;
+            if (state.showSingleText) textOffset += 50 * scaleY;
+            if (state.showSingleTagline) textOffset += 30 * scaleY;
+            const x = width * state.singleLogoX - singleWidth / 2;
+            const y = height * state.singleLogoY - singleHeight / 2 - textOffset / 2;
+
+            ctx.drawImage(state.logoImage, x, y, singleWidth, singleHeight);
+
+            // Draw text if enabled
+            let textY = y + singleHeight + 45 * scaleY;
+            if (state.showSingleText) {
+                ctx.font = `bold ${36 * scaleY}px ${state.singleTextFont}`;
+                ctx.fillStyle = state.singleTextColor;
+                ctx.textAlign = 'center';
+                ctx.fillText(state.singleText, width * state.singleLogoX, textY);
+                textY += 35 * scaleY;
+            }
+            if (state.showSingleTagline) {
+                ctx.font = `${18 * scaleY}px ${state.singleTaglineFont}`;
+                ctx.fillStyle = state.singleTaglineColor;
+                ctx.textAlign = 'center';
+                ctx.fillText(state.singleTagline, width * state.singleLogoX, textY);
             }
 
-            // Draw text layers (up to 3)
-            state.photoTextLayers.forEach((layer, index) => {
-                if (!layer.enabled || !layer.text.trim()) return;
+        } else if (state.patternStyle === 'highlight') {
+            // Highlight mode - pattern background + centered logo
+            ctx.save();
+            ctx.translate(width / 2 + offsetX, height / 2 + offsetY);
+            ctx.rotate(rotation);
+            ctx.translate(-width / 2, -height / 2);
 
-                hiResCtx.font = `bold ${layer.size}px ${layer.font}`;
-                hiResCtx.fillStyle = layer.color;
-                hiResCtx.textAlign = 'center';
-                hiResCtx.textBaseline = 'middle';
+            const smallLogoWidth = logoWidth * 0.6;
+            const smallLogoHeight = (state.logoImage.height / state.logoImage.width) * smallLogoWidth;
 
-                const textX = canvas.width * layer.x;
-                const textY = canvas.height * layer.y;
-
-                hiResCtx.fillText(layer.text, textX, textY);
-            });
-        } else if (state.designType === 'logo' && state.logoImage) {
-            // For logo mode, redraw everything at high resolution
-            // Background
-            hiResCtx.fillStyle = state.patternBgColor || '#ffffff';
-            hiResCtx.fillRect(0, 0, canvas.width, canvas.height);
-
-            const logoWidth = state.logoSize;
-            const logoHeight = (state.logoImage.height / state.logoImage.width) * logoWidth;
-            const spacing = state.patternSpacing;
-            const offsetX = state.patternOffsetX || 0;
-            const offsetY = state.patternOffsetY || 0;
-            const rotation = (state.patternRotation || 0) * Math.PI / 180;
-
-            if (state.patternStyle === 'single') {
-                // Single logo
-                const singleWidth = state.singleLogoSize;
-                const singleHeight = (state.logoImage.height / state.logoImage.width) * singleWidth;
-                let textOffset = 0;
-                if (state.showSingleText) textOffset += 50;
-                if (state.showSingleTagline) textOffset += 30;
-                const x = canvas.width * state.singleLogoX - singleWidth / 2;
-                const y = canvas.height * state.singleLogoY - singleHeight / 2 - textOffset / 2;
-
-                hiResCtx.drawImage(state.logoImage, x, y, singleWidth, singleHeight);
-
-                let textY = y + singleHeight + 45;
-                if (state.showSingleText) {
-                    hiResCtx.font = `bold 36px ${state.singleTextFont}`;
-                    hiResCtx.fillStyle = state.singleTextColor;
-                    hiResCtx.textAlign = 'center';
-                    hiResCtx.fillText(state.singleText, canvas.width * state.singleLogoX, textY);
-                    textY += 35;
+            let rowIndex = 0;
+            for (let py = -smallLogoHeight * 2; py < height + smallLogoHeight * 2; py += smallLogoHeight + spacing) {
+                const rowOffset = rowIndex % 2 === 0 ? 0 : (smallLogoWidth + spacing) / 2;
+                for (let px = -smallLogoWidth * 2 + rowOffset; px < width + smallLogoWidth * 2; px += smallLogoWidth + spacing) {
+                    ctx.globalAlpha = 0.3;
+                    ctx.drawImage(state.logoImage, px, py, smallLogoWidth, smallLogoHeight);
                 }
-                if (state.showSingleTagline) {
-                    hiResCtx.font = `18px ${state.singleTaglineFont}`;
-                    hiResCtx.fillStyle = state.singleTaglineColor;
-                    hiResCtx.textAlign = 'center';
-                    hiResCtx.fillText(state.singleTagline, canvas.width * state.singleLogoX, textY);
+                rowIndex++;
+            }
+            ctx.restore();
+            ctx.globalAlpha = 1;
+
+            // Draw highlight logo
+            const highlightWidth = state.highlightSize * scaleX;
+            const highlightHeight = (state.logoImage.height / state.logoImage.width) * highlightWidth;
+            const logoCenterX = width * state.highlightLogoX;
+            const logoCenterY = height * state.highlightLogoY;
+            const centerX = logoCenterX - highlightWidth / 2;
+            const centerY = logoCenterY - highlightHeight / 2;
+
+            // Background behind highlight logo
+            if (state.showHighlightBg) {
+                const paddingPercent = (state.highlightBgSize - 100) / 100;
+                const padding = Math.min(highlightWidth, highlightHeight) * paddingPercent;
+                const bgWidth = highlightWidth + padding * 2;
+                const bgHeight = highlightHeight + padding * 2;
+                const bgX = centerX - padding;
+                const bgY = centerY - padding;
+
+                ctx.fillStyle = state.highlightBgColor;
+                if (state.highlightBgShape === 'circle') {
+                    const radius = Math.max(bgWidth, bgHeight) / 2;
+                    ctx.beginPath();
+                    ctx.arc(centerX + highlightWidth / 2, centerY + highlightHeight / 2, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (state.highlightBgShape === 'rounded') {
+                    ctx.beginPath();
+                    ctx.roundRect(bgX, bgY, bgWidth, bgHeight, padding * 0.5);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
                 }
-            } else if (state.patternStyle === 'highlight') {
-                // Highlight mode - pattern + positioned logo (with background and text)
-                hiResCtx.save();
-                hiResCtx.translate(canvas.width / 2 + offsetX, canvas.height / 2 + offsetY);
-                hiResCtx.rotate(rotation);
-                hiResCtx.translate(-canvas.width / 2, -canvas.height / 2);
+            }
 
-                const smallLogoWidth = logoWidth * 0.6;
-                const smallLogoHeight = (state.logoImage.height / state.logoImage.width) * smallLogoWidth;
+            ctx.drawImage(state.logoImage, centerX, centerY, highlightWidth, highlightHeight);
 
+            // Highlight text
+            let textY = centerY + highlightHeight + 45 * scaleY;
+            if (state.showHighlightText) {
+                ctx.font = `bold ${36 * scaleY}px ${state.highlightTextFont}`;
+                ctx.fillStyle = state.highlightTextColor;
+                ctx.textAlign = 'center';
+                ctx.fillText(state.highlightText, logoCenterX, textY);
+                textY += 35 * scaleY;
+            }
+            if (state.showHighlightTagline) {
+                ctx.font = `${18 * scaleY}px ${state.highlightTaglineFont}`;
+                ctx.fillStyle = state.highlightTaglineColor;
+                ctx.textAlign = 'center';
+                ctx.fillText(state.highlightTagline, logoCenterX, textY);
+            }
+
+        } else {
+            // Grid, Diagonal, Offset patterns
+            ctx.save();
+            ctx.translate(width / 2 + offsetX, height / 2 + offsetY);
+            ctx.rotate(rotation);
+            ctx.translate(-width / 2, -height / 2);
+
+            if (state.patternStyle === 'diagonal') {
+                ctx.rotate(-Math.PI / 6);
+                for (let py = -logoHeight * 3; py < height * 3; py += logoHeight + spacing) {
+                    for (let px = -logoWidth * 3; px < width * 3; px += logoWidth + spacing) {
+                        ctx.drawImage(state.logoImage, px, py, logoWidth, logoHeight);
+                    }
+                }
+            } else if (state.patternStyle === 'offset') {
                 let rowIndex = 0;
-                for (let py = -smallLogoHeight * 2; py < canvas.height + smallLogoHeight * 2; py += smallLogoHeight + spacing) {
-                    const rowOffset = rowIndex % 2 === 0 ? 0 : (smallLogoWidth + spacing) / 2;
-                    for (let px = -smallLogoWidth * 2 + rowOffset; px < canvas.width + smallLogoWidth * 2; px += smallLogoWidth + spacing) {
-                        hiResCtx.globalAlpha = 0.3;
-                        hiResCtx.drawImage(state.logoImage, px, py, smallLogoWidth, smallLogoHeight);
+                for (let py = -logoHeight * 2; py < height + logoHeight * 2; py += logoHeight + spacing) {
+                    const rowOffset = rowIndex % 2 === 0 ? 0 : (logoWidth + spacing) / 2;
+                    for (let px = -logoWidth * 2 + rowOffset; px < width + logoWidth * 2; px += logoWidth + spacing) {
+                        ctx.drawImage(state.logoImage, px, py, logoWidth, logoHeight);
                     }
                     rowIndex++;
                 }
-                hiResCtx.restore();
-                hiResCtx.globalAlpha = 1;
-
-                let textOffset = 0;
-                if (state.showHighlightText) textOffset += 50;
-                if (state.showHighlightTagline) textOffset += 30;
-
-                const highlightWidth = state.highlightSize;
-                const highlightHeight = (state.logoImage.height / state.logoImage.width) * highlightWidth;
-
-                // Use highlightLogoX/Y for positioning
-                const logoCenterX = canvas.width * state.highlightLogoX;
-                const logoCenterY = canvas.height * state.highlightLogoY;
-                const centerX = logoCenterX - highlightWidth / 2;
-                const centerY = logoCenterY - highlightHeight / 2 - textOffset / 2;
-
-                // Background behind highlight logo
-                if (state.showHighlightBg) {
-                    const paddingPercent = (state.highlightBgSize - 100) / 100;
-                    const padding = Math.min(highlightWidth, highlightHeight) * paddingPercent;
-                    const bgWidth = highlightWidth + padding * 2;
-                    const bgHeight = highlightHeight + padding * 2;
-                    const bgX = centerX - padding;
-                    const bgY = centerY - padding;
-
-                    hiResCtx.fillStyle = state.highlightBgColor;
-                    if (state.highlightBgShape === 'circle') {
-                        const radius = Math.max(bgWidth, bgHeight) / 2;
-                        hiResCtx.beginPath();
-                        hiResCtx.arc(centerX + highlightWidth / 2, centerY + highlightHeight / 2, radius, 0, Math.PI * 2);
-                        hiResCtx.fill();
-                    } else if (state.highlightBgShape === 'rounded') {
-                        hiResCtx.beginPath();
-                        hiResCtx.roundRect(bgX, bgY, bgWidth, bgHeight, padding * 0.5);
-                        hiResCtx.fill();
-                    } else {
-                        hiResCtx.fillRect(bgX, bgY, bgWidth, bgHeight);
-                    }
-                }
-
-                hiResCtx.drawImage(state.logoImage, centerX, centerY, highlightWidth, highlightHeight);
-
-                let textY = centerY + highlightHeight + 45;
-                if (state.showHighlightText) {
-                    hiResCtx.font = `bold 36px ${state.highlightTextFont}`;
-                    hiResCtx.fillStyle = state.highlightTextColor;
-                    hiResCtx.textAlign = 'center';
-                    hiResCtx.fillText(state.highlightText, logoCenterX, textY);
-                    textY += 35;
-                }
-                if (state.showHighlightTagline) {
-                    hiResCtx.font = `18px ${state.highlightTaglineFont}`;
-                    hiResCtx.fillStyle = state.highlightTaglineColor;
-                    hiResCtx.textAlign = 'center';
-                    hiResCtx.fillText(state.highlightTagline, logoCenterX, textY);
-                }
             } else {
-                // Grid, Diagonal, Offset patterns
-                hiResCtx.save();
-                hiResCtx.translate(canvas.width / 2 + offsetX, canvas.height / 2 + offsetY);
-                hiResCtx.rotate(rotation);
-                hiResCtx.translate(-canvas.width / 2, -canvas.height / 2);
-
-                if (state.patternStyle === 'diagonal') {
-                    hiResCtx.rotate(-Math.PI / 6);
-                    for (let py = -logoHeight * 3; py < canvas.height * 3; py += logoHeight + spacing) {
-                        for (let px = -logoWidth * 3; px < canvas.width * 3; px += logoWidth + spacing) {
-                            hiResCtx.drawImage(state.logoImage, px, py, logoWidth, logoHeight);
-                        }
-                    }
-                } else if (state.patternStyle === 'offset') {
-                    let rowIndex = 0;
-                    for (let py = -logoHeight * 2; py < canvas.height + logoHeight * 2; py += logoHeight + spacing) {
-                        const rowOffset = rowIndex % 2 === 0 ? 0 : (logoWidth + spacing) / 2;
-                        for (let px = -logoWidth * 2 + rowOffset; px < canvas.width + logoWidth * 2; px += logoWidth + spacing) {
-                            hiResCtx.drawImage(state.logoImage, px, py, logoWidth, logoHeight);
-                        }
-                        rowIndex++;
-                    }
-                } else {
-                    // Grid
-                    for (let py = -logoHeight * 2; py < canvas.height + logoHeight * 2; py += logoHeight + spacing) {
-                        for (let px = -logoWidth * 2; px < canvas.width + logoWidth * 2; px += logoWidth + spacing) {
-                            hiResCtx.drawImage(state.logoImage, px, py, logoWidth, logoHeight);
-                        }
+                // Grid
+                for (let py = -logoHeight * 2; py < height + logoHeight * 2; py += logoHeight + spacing) {
+                    for (let px = -logoWidth * 2; px < width + logoWidth * 2; px += logoWidth + spacing) {
+                        ctx.drawImage(state.logoImage, px, py, logoWidth, logoHeight);
                     }
                 }
-                hiResCtx.restore();
             }
+            ctx.restore();
         }
-
-        // Reset scale for getting image data
-        hiResCtx.setTransform(1, 0, 0, 1, 0, 0);
-
-        // Get high-resolution image data - use PNG for better quality
-        const imageData = hiResCanvas.toDataURL('image/png');
-
-        // Use product dimensions directly from state
-        const sizeLabel = state.selectedSize.label;
-        let width = state.selectedSize.width;
-        let height = state.selectedSize.height;
-
-        // Determine unit from label
-        let unit;
-        if (sizeLabel.includes('ft')) {
-            unit = 'ft';
-        } else if (sizeLabel.includes('"') || sizeLabel.includes('in')) {
-            unit = 'in';
-        } else {
-            // Guess based on numeric value - dimensions > 20 are likely inches
-            unit = (width > 20 || height > 20) ? 'in' : 'ft';
-        }
-
-        console.log(`Generating PDF: ${width} x ${height} ${unit} (canvas: ${canvas.width}x${canvas.height})`);
-
-        // Call server API for CMYK PDF generation
-        const response = await fetch(`${CONFIG.API_URL}/api/generate-pdf`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                imageData: imageData,
-                width: width,
-                height: height,
-                unit: unit,
-                dpi: 300,  // Higher DPI for better print quality
-                productName: state.currentProduct.name,
-                hasSvgLogo: !!state.logoSvgData  // Flag for potential future SVG support
-            })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'PDF generation failed');
-        }
-
-        const data = await response.json();
-
-        if (data.success && data.pdf) {
-            // Convert base64 to Blob for reliable download (Chrome blocks data: URLs)
-            const base64Data = data.pdf.split(',')[1];
-            const binaryString = atob(base64Data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-            const blob = new Blob([bytes], { type: 'application/pdf' });
-
-            // Create object URL and download
-            const blobUrl = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = data.filename || 'PrintPilot_Design_PRINT.pdf';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            // Clean up blob URL
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-
-            // Show specs to user
-            const specs = data.specs;
-            showSuccess(`PDF Downloaded! Trim: ${specs.trimSize} | Bleed: ${specs.bleed} | ${specs.colorSpace}`);
-
-            console.log('PDF Specs:', specs);
-        } else {
-            throw new Error('No PDF data in response');
-        }
-
-    } catch (error) {
-        console.error('PDF generation error:', error);
-
-        // Fallback to client-side PDF if server fails
-        if (typeof window.jspdf !== 'undefined') {
-            console.log('Falling back to client-side PDF generation...');
-            downloadPDFFallback();
-        } else {
-            alert(`Error generating PDF: ${error.message}`);
-        }
-    } finally {
-        showLoading(false);
     }
 }
 
