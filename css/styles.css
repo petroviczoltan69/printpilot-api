@@ -1610,58 +1610,108 @@ a:hover {
 
 /* 3D Mockup Preview */
 .mockup-preview {
-    background: linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 100%);
+    background: linear-gradient(180deg, #f0f0f0 0%, #e0e0e0 50%, #d5d5d5 100%);
     border-radius: var(--radius-md);
-    padding: 40px 20px 20px;
-    min-height: 500px;
+    padding: 30px 20px 20px;
+    min-height: 520px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-end;
+    cursor: grab;
+    user-select: none;
+    overflow: hidden;
+}
+
+.mockup-preview:active {
+    cursor: grabbing;
 }
 
 .mockup-scene {
     position: relative;
-    perspective: 1000px;
+    perspective: 1200px;
+    perspective-origin: 50% 40%;
     width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 
+/* Floor/Shadow */
 .mockup-floor {
     position: absolute;
-    bottom: 0;
-    width: 300px;
-    height: 60px;
-    background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.02) 100%);
+    bottom: -5px;
+    width: 180px;
+    height: 35px;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.05) 50%, transparent 70%);
     border-radius: 50%;
-    transform: rotateX(60deg);
     z-index: 1;
+    filter: blur(3px);
 }
 
+/* Main 3D Container */
 .mockup-banner-stand {
     position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
-    transform: rotateY(-8deg) rotateX(2deg);
     transform-style: preserve-3d;
+    transform: rotateY(var(--rotate-y, -15deg)) rotateX(2deg);
+    transition: transform 0.05s ease-out;
     z-index: 2;
 }
+
+/* Top Rail/Holder - Silver bar at top */
+.mockup-top-rail {
+    width: calc(100% + 8px);
+    height: 7px;
+    background: linear-gradient(180deg, #f0f0f0 0%, #c0c0c0 20%, #a8a8a8 50%, #b8b8b8 80%, #d0d0d0 100%);
+    border-radius: 2px;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    margin-bottom: -1px;
+}
+
+/* End caps on top rail */
+.mockup-top-rail::before,
+.mockup-top-rail::after {
+    content: '';
+    position: absolute;
+    top: -1px;
+    width: 5px;
+    height: 9px;
+    background: linear-gradient(180deg, #e0e0e0 0%, #a0a0a0 50%, #b0b0b0 100%);
+    border-radius: 1px;
+}
+
+.mockup-top-rail::before { left: -1px; }
+.mockup-top-rail::after { right: -1px; }
 
 /* Banner Display */
 .mockup-banner-display {
     position: relative;
-    width: 160px;
+    width: 140px;
     background: white;
-    border-radius: 2px;
     box-shadow:
-        4px 4px 20px rgba(0,0,0,0.15),
-        -2px 0 10px rgba(0,0,0,0.05),
-        inset 0 0 0 1px rgba(0,0,0,0.05);
+        6px 6px 20px rgba(0,0,0,0.12),
+        -2px 0 12px rgba(0,0,0,0.04);
     overflow: hidden;
-    transform-origin: bottom center;
+    transform-style: preserve-3d;
+}
+
+/* Subtle lighting overlay on banner */
+.mockup-banner-display::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg,
+        rgba(0,0,0,0.02) 0%,
+        rgba(255,255,255,0.06) 15%,
+        transparent 50%,
+        rgba(0,0,0,0.01) 100%
+    );
+    pointer-events: none;
+    z-index: 10;
 }
 
 .mockup-banner-display canvas {
@@ -1670,76 +1720,115 @@ a:hover {
     display: block;
 }
 
-/* Pole connecting banner to base */
+/* Center Pole - connects banner to base */
 .mockup-pole {
-    width: 6px;
-    height: 20px;
-    background: linear-gradient(90deg, #888 0%, #ccc 50%, #888 100%);
-    border-radius: 1px;
+    width: 7px;
+    height: 10px;
+    background: linear-gradient(90deg, #a0a0a0 0%, #d8d8d8 30%, #e8e8e8 50%, #d8d8d8 70%, #a0a0a0 100%);
+    border-radius: 0 0 1px 1px;
 }
 
-/* Base Unit */
+/* Base Unit - The cassette housing */
 .mockup-base {
     display: flex;
     flex-direction: column;
     align-items: center;
+    transform-style: preserve-3d;
 }
 
+/* Top of base - silver lip */
 .mockup-base-top {
-    width: 140px;
+    width: calc(100% + 16px);
     height: 8px;
-    background: linear-gradient(180deg, #666 0%, #444 100%);
+    background: linear-gradient(180deg, #e8e8e8 0%, #c8c8c8 30%, #b0b0b0 70%, #a0a0a0 100%);
     border-radius: 2px 2px 0 0;
 }
 
+/* Main base body - dark cassette */
 .mockup-base-body {
-    width: 130px;
-    height: 16px;
-    background: linear-gradient(180deg, #555 0%, #333 50%, #222 100%);
-    border-radius: 0 0 4px 4px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    width: calc(100% + 16px);
+    height: 20px;
+    background: linear-gradient(180deg, #8a8a8a 0%, #6a6a6a 20%, #5a5a5a 50%, #4a4a4a 80%, #3a3a3a 100%);
+    border-radius: 0 0 3px 3px;
+    box-shadow: 0 5px 10px rgba(0,0,0,0.2);
+    position: relative;
 }
 
-/* Feet */
+/* Slot line on cassette */
+.mockup-base-body::before {
+    content: '';
+    position: absolute;
+    top: 7px;
+    left: 12%;
+    right: 12%;
+    height: 1px;
+    background: rgba(0,0,0,0.4);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.1);
+}
+
+/* Feet - angled supports */
 .mockup-feet {
     display: flex;
     justify-content: space-between;
-    width: 200px;
-    margin-top: 4px;
+    width: 170px;
+    margin-top: 3px;
+    transform-style: preserve-3d;
 }
 
 .mockup-foot {
-    width: 80px;
-    height: 6px;
-    background: linear-gradient(180deg, #444 0%, #222 100%);
+    width: 65px;
+    height: 7px;
+    background: linear-gradient(180deg, #888 0%, #666 40%, #555 100%);
     border-radius: 3px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    position: relative;
+}
+
+/* Highlight on feet */
+.mockup-foot::before {
+    content: '';
+    position: absolute;
+    top: 1px;
+    left: 15%;
+    right: 15%;
+    height: 1px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 1px;
 }
 
 .mockup-foot.left {
-    transform: rotate(-15deg);
+    transform: rotateZ(-18deg);
     transform-origin: right center;
 }
 
 .mockup-foot.right {
-    transform: rotate(15deg);
+    transform: rotateZ(18deg);
     transform-origin: left center;
 }
 
+/* Drag hint */
+.mockup-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 16px;
+    font-size: 0.72rem;
+    color: var(--text-light);
+    opacity: 0.6;
+}
+
+.mockup-hint svg {
+    width: 14px;
+    height: 14px;
+}
+
 .mockup-note {
-    margin-top: 20px;
-    font-size: 0.75rem;
+    margin-top: 10px;
+    font-size: 0.68rem;
     color: var(--text-light);
     text-align: center;
-}
-
-/* Mockup size variations */
-.mockup-preview[data-size="small"] .mockup-banner-display {
-    width: 120px;
-}
-
-.mockup-preview[data-size="large"] .mockup-banner-display {
-    width: 200px;
+    opacity: 0.5;
 }
 
 .review-summary {
