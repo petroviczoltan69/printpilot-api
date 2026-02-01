@@ -1056,8 +1056,53 @@
                 <div class="review-panel">
                     <div class="review-preview">
                         <h3>Your Design</h3>
-                        <div class="final-preview">
+
+                        <!-- View Toggle -->
+                        <div class="preview-view-toggle">
+                            <button class="view-toggle-btn active" data-view="flat">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                                </svg>
+                                Flat View
+                            </button>
+                            <button class="view-toggle-btn" data-view="mockup">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                                    <path d="M2 17l10 5 10-5"></path>
+                                    <path d="M2 12l10 5 10-5"></path>
+                                </svg>
+                                3D Mockup
+                            </button>
+                        </div>
+
+                        <!-- Flat Preview -->
+                        <div class="final-preview" id="flatPreview">
                             <canvas id="finalCanvas" width="1000" height="500"></canvas>
+                        </div>
+
+                        <!-- 3D Mockup Preview -->
+                        <div class="mockup-preview hidden" id="mockupPreview">
+                            <div class="mockup-scene">
+                                <div class="mockup-floor"></div>
+                                <div class="mockup-banner-stand">
+                                    <!-- Banner display area -->
+                                    <div class="mockup-banner-display">
+                                        <canvas id="mockupCanvas" width="400" height="800"></canvas>
+                                    </div>
+                                    <!-- Stand pole -->
+                                    <div class="mockup-pole"></div>
+                                    <!-- Base unit -->
+                                    <div class="mockup-base">
+                                        <div class="mockup-base-top"></div>
+                                        <div class="mockup-base-body"></div>
+                                        <div class="mockup-feet">
+                                            <div class="mockup-foot left"></div>
+                                            <div class="mockup-foot right"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="mockup-note">* Mockup for visualization purposes. Actual colors may vary.</p>
                         </div>
                     </div>
 
