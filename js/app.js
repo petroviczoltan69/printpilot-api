@@ -1985,7 +1985,8 @@ async function loadFeatherFlagTemplate() {
         const pdfCtx = pdfCanvas.getContext('2d');
 
         // Scale to fit our preview canvas while maintaining aspect ratio
-        const scale = Math.min(800 / viewport.width, 2000 / viewport.height);
+        // Use higher scale for better quality preview
+        const scale = Math.min(1200 / viewport.width, 3000 / viewport.height);
         const scaledViewport = page.getViewport({ scale });
 
         pdfCanvas.width = scaledViewport.width;
@@ -2028,12 +2029,13 @@ async function loadFeatherFlagTemplate() {
 // Measured from the PDF: the print area is positioned within the page
 function getFeatherFlagPrintArea(templateWidth, templateHeight) {
     // Based on analysis of the B2Sign PDF template
-    // The print area starts after the header text and has margins
+    // The header text area is approximately 3.5% of the height
+    // User design should fill from below header to bottom
     return {
-        x: templateWidth * 0.04,        // Left margin ~4%
-        y: templateHeight * 0.045,       // Top margin ~4.5% (after header)
-        width: templateWidth * 0.92,    // Print area width ~92%
-        height: templateHeight * 0.94   // Print area height ~94%
+        x: templateWidth * 0.01,        // Left margin ~1%
+        y: templateHeight * 0.035,      // Top margin ~3.5% (after header text)
+        width: templateWidth * 0.98,    // Print area width ~98%
+        height: templateHeight * 0.955  // Print area height ~95.5%
     };
 }
 
@@ -3678,9 +3680,17 @@ async function downloadFeatherFlagPDF() {
             // Use cached bytes
             pdfBytes = featherFlagPdfBytes.slice(0);
         } else {
-            // Fetch the template
-            const response = await fetch(FEATHER_FLAG_TEMPLATE_URL);
-            if (!response.ok) {
+            // Fetch the template - try multiple URLs
+            let response = null;
+            for (const url of FEATHER_FLAG_TEMPLATE_URLS) {
+                try {
+                    response = await fetch(url);
+                    if (response.ok) break;
+                } catch (e) {
+                    console.log('Failed to fetch from:', url);
+                }
+            }
+            if (!response || !response.ok) {
                 throw new Error('Could not load PDF template. Make sure the file is deployed.');
             }
             pdfBytes = await response.arrayBuffer();
@@ -3697,10 +3707,11 @@ async function downloadFeatherFlagPDF() {
         // B2Sign XL template dimensions (24" x 183.5" graphic area)
         // The print area is positioned within the page with margins
         // Based on PDF analysis, approximate print area coordinates:
-        const printAreaX = pageWidth * 0.04;           // ~4% from left
-        const printAreaY = pageHeight * 0.01;          // ~1% from bottom
-        const printAreaWidth = pageWidth * 0.92;       // ~92% width
-        const printAreaHeight = pageHeight * 0.945;    // ~94.5% height
+        // Note: PDF y-coordinate starts from bottom, so we need to calculate from bottom
+        const printAreaX = pageWidth * 0.01;           // ~1% from left
+        const printAreaHeight = pageHeight * 0.955;    // ~95.5% height
+        const printAreaY = pageHeight * 0.01;          // Start near bottom
+        const printAreaWidth = pageWidth * 0.98;       // ~98% width
 
         // Create high-res canvas for user's design at 150 DPI
         const dpi = 150;
