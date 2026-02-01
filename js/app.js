@@ -2820,41 +2820,260 @@ function copyToFinalCanvas() {
     renderMockupCanvas();
 }
 
-// ========== Render Mockup Canvas ==========
-function renderMockupCanvas() {
-    const mockupCanvas = document.getElementById('mockupCanvas');
-    if (!mockupCanvas || !canvas) return;
+// ========== Three.js 3D Mockup ==========
+let threejsScene, threejsCamera, threejsRenderer, bannerMesh, bannerStand;
+let threejsInitialized = false;
+let targetRotationY = 0;
+let currentRotationY = 0;
+let isThreejsDragging = false;
+let previousMouseX = 0;
 
-    const mockupCtx = mockupCanvas.getContext('2d');
+function initThreeJsMockup() {
+    const container = document.getElementById('threejs-container');
+    if (!container || threejsInitialized) return;
 
-    // Set mockup canvas dimensions based on product ratio
-    if (state.selectedSize) {
-        const ratio = state.selectedSize.width / state.selectedSize.height;
-        const mockupHeight = 350; // Fixed height for display
-        const mockupWidth = mockupHeight * ratio;
-
-        mockupCanvas.width = mockupWidth;
-        mockupCanvas.height = mockupHeight;
-
-        // Update the display container width
-        const displayContainer = mockupCanvas.closest('.mockup-banner-display');
-        if (displayContainer) {
-            displayContainer.style.width = Math.min(mockupWidth, 180) + 'px';
-        }
+    // Check if Three.js is loaded
+    if (typeof THREE === 'undefined') {
+        console.error('Three.js not loaded');
+        return;
     }
 
-    // Draw the design onto mockup canvas
-    mockupCtx.drawImage(canvas, 0, 0, mockupCanvas.width, mockupCanvas.height);
+    const width = container.clientWidth || 500;
+    const height = container.clientHeight || 420;
 
-    // Add subtle overlay for realism (slight vignette effect)
-    const gradient = mockupCtx.createRadialGradient(
-        mockupCanvas.width / 2, mockupCanvas.height / 2, 0,
-        mockupCanvas.width / 2, mockupCanvas.height / 2, mockupCanvas.width
-    );
-    gradient.addColorStop(0, 'rgba(255,255,255,0)');
-    gradient.addColorStop(1, 'rgba(0,0,0,0.05)');
-    mockupCtx.fillStyle = gradient;
-    mockupCtx.fillRect(0, 0, mockupCanvas.width, mockupCanvas.height);
+    // Scene
+    threejsScene = new THREE.Scene();
+    threejsScene.background = new THREE.Color(0xf0f0f0);
+
+    // Camera
+    threejsCamera = new THREE.PerspectiveCamera(35, width / height, 0.1, 1000);
+    threejsCamera.position.set(0, 1.5, 6);
+    threejsCamera.lookAt(0, 1.2, 0);
+
+    // Renderer
+    threejsRenderer = new THREE.WebGLRenderer({ antialias: true });
+    threejsRenderer.setSize(width, height);
+    threejsRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    threejsRenderer.shadowMap.enabled = true;
+    threejsRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(threejsRenderer.domElement);
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    threejsScene.add(ambientLight);
+
+    const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    mainLight.position.set(5, 10, 7);
+    mainLight.castShadow = true;
+    mainLight.shadow.mapSize.width = 1024;
+    mainLight.shadow.mapSize.height = 1024;
+    threejsScene.add(mainLight);
+
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+    fillLight.position.set(-5, 5, -5);
+    threejsScene.add(fillLight);
+
+    // Ground plane for shadow
+    const groundGeometry = new THREE.PlaneGeometry(10, 10);
+    const groundMaterial = new THREE.ShadowMaterial({ opacity: 0.15 });
+    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = 0;
+    ground.receiveShadow = true;
+    threejsScene.add(ground);
+
+    // Create banner stand group
+    bannerStand = new THREE.Group();
+
+    // Materials
+    const metalMaterial = new THREE.MeshStandardMaterial({
+        color: 0xcccccc,
+        metalness: 0.8,
+        roughness: 0.3
+    });
+
+    const darkMetalMaterial = new THREE.MeshStandardMaterial({
+        color: 0x555555,
+        metalness: 0.7,
+        roughness: 0.4
+    });
+
+    // Base cassette
+    const baseGeometry = new THREE.BoxGeometry(0.9, 0.12, 0.15);
+    const baseMesh = new THREE.Mesh(baseGeometry, darkMetalMaterial);
+    baseMesh.position.y = 0.06;
+    baseMesh.castShadow = true;
+    bannerStand.add(baseMesh);
+
+    // Base top (silver lip)
+    const baseTopGeometry = new THREE.BoxGeometry(0.92, 0.03, 0.16);
+    const baseTopMesh = new THREE.Mesh(baseTopGeometry, metalMaterial);
+    baseTopMesh.position.y = 0.135;
+    baseMesh.castShadow = true;
+    bannerStand.add(baseTopMesh);
+
+    // Feet
+    const footGeometry = new THREE.BoxGeometry(0.4, 0.025, 0.05);
+    const leftFoot = new THREE.Mesh(footGeometry, darkMetalMaterial);
+    leftFoot.position.set(-0.25, 0.012, 0.2);
+    leftFoot.rotation.y = 0.4;
+    leftFoot.castShadow = true;
+    bannerStand.add(leftFoot);
+
+    const rightFoot = new THREE.Mesh(footGeometry, darkMetalMaterial);
+    rightFoot.position.set(0.25, 0.012, 0.2);
+    rightFoot.rotation.y = -0.4;
+    rightFoot.castShadow = true;
+    bannerStand.add(rightFoot);
+
+    // Pole
+    const poleGeometry = new THREE.CylinderGeometry(0.015, 0.015, 0.1, 16);
+    const poleMesh = new THREE.Mesh(poleGeometry, metalMaterial);
+    poleMesh.position.y = 0.2;
+    bannerStand.add(poleMesh);
+
+    // Banner - will be textured with design
+    const bannerWidth = 0.8;
+    const bannerHeight = 2.2;
+    const bannerGeometry = new THREE.PlaneGeometry(bannerWidth, bannerHeight);
+    const bannerMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        side: THREE.DoubleSide,
+        roughness: 0.8,
+        metalness: 0.0
+    });
+    bannerMesh = new THREE.Mesh(bannerGeometry, bannerMaterial);
+    bannerMesh.position.y = 0.25 + bannerHeight / 2;
+    bannerMesh.castShadow = true;
+    bannerStand.add(bannerMesh);
+
+    // Top rail
+    const topRailGeometry = new THREE.BoxGeometry(bannerWidth + 0.05, 0.03, 0.02);
+    const topRailMesh = new THREE.Mesh(topRailGeometry, metalMaterial);
+    topRailMesh.position.y = 0.25 + bannerHeight + 0.015;
+    topRailMesh.castShadow = true;
+    bannerStand.add(topRailMesh);
+
+    // End caps
+    const capGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.04, 16);
+    const leftCap = new THREE.Mesh(capGeometry, metalMaterial);
+    leftCap.rotation.z = Math.PI / 2;
+    leftCap.position.set(-(bannerWidth / 2 + 0.03), 0.25 + bannerHeight + 0.015, 0);
+    bannerStand.add(leftCap);
+
+    const rightCap = new THREE.Mesh(capGeometry, metalMaterial);
+    rightCap.rotation.z = Math.PI / 2;
+    rightCap.position.set(bannerWidth / 2 + 0.03, 0.25 + bannerHeight + 0.015, 0);
+    bannerStand.add(rightCap);
+
+    threejsScene.add(bannerStand);
+
+    // Event listeners for rotation
+    container.addEventListener('mousedown', onThreejsMouseDown);
+    container.addEventListener('touchstart', onThreejsTouchStart, { passive: false });
+    document.addEventListener('mousemove', onThreejsMouseMove);
+    document.addEventListener('mouseup', onThreejsMouseUp);
+    document.addEventListener('touchmove', onThreejsTouchMove, { passive: false });
+    document.addEventListener('touchend', onThreejsTouchEnd);
+
+    // Handle resize
+    window.addEventListener('resize', onThreejsResize);
+
+    threejsInitialized = true;
+
+    // Start animation loop
+    animateThreejs();
+
+    // Apply design texture
+    updateBannerTexture();
+}
+
+function updateBannerTexture() {
+    if (!bannerMesh || !canvas) return;
+
+    // Create texture from design canvas
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+
+    bannerMesh.material.map = texture;
+    bannerMesh.material.needsUpdate = true;
+}
+
+function animateThreejs() {
+    if (!threejsInitialized) return;
+
+    requestAnimationFrame(animateThreejs);
+
+    // Smooth rotation
+    currentRotationY += (targetRotationY - currentRotationY) * 0.1;
+    if (bannerStand) {
+        bannerStand.rotation.y = currentRotationY;
+    }
+
+    threejsRenderer.render(threejsScene, threejsCamera);
+}
+
+function onThreejsMouseDown(e) {
+    isThreejsDragging = true;
+    previousMouseX = e.clientX;
+}
+
+function onThreejsMouseMove(e) {
+    if (!isThreejsDragging) return;
+
+    const deltaX = e.clientX - previousMouseX;
+    targetRotationY += deltaX * 0.01;
+
+    // Clamp rotation
+    targetRotationY = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, targetRotationY));
+
+    previousMouseX = e.clientX;
+}
+
+function onThreejsMouseUp() {
+    isThreejsDragging = false;
+}
+
+function onThreejsTouchStart(e) {
+    if (e.touches.length === 1) {
+        isThreejsDragging = true;
+        previousMouseX = e.touches[0].clientX;
+        e.preventDefault();
+    }
+}
+
+function onThreejsTouchMove(e) {
+    if (!isThreejsDragging || e.touches.length !== 1) return;
+
+    const deltaX = e.touches[0].clientX - previousMouseX;
+    targetRotationY += deltaX * 0.01;
+    targetRotationY = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, targetRotationY));
+
+    previousMouseX = e.touches[0].clientX;
+    e.preventDefault();
+}
+
+function onThreejsTouchEnd() {
+    isThreejsDragging = false;
+}
+
+function onThreejsResize() {
+    const container = document.getElementById('threejs-container');
+    if (!container || !threejsRenderer || !threejsCamera) return;
+
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+
+    threejsCamera.aspect = width / height;
+    threejsCamera.updateProjectionMatrix();
+    threejsRenderer.setSize(width, height);
+}
+
+function renderMockupCanvas() {
+    // For Three.js, just update the texture
+    if (threejsInitialized) {
+        updateBannerTexture();
+    }
 }
 
 // ========== Initialize Mockup View Toggle ==========
@@ -2882,61 +3101,31 @@ function initMockupViewToggle() {
         } else if (view === 'mockup') {
             flatPreview?.classList.add('hidden');
             mockupPreview?.classList.remove('hidden');
-            // Re-render mockup when shown
-            renderMockupCanvas();
-            // Initialize rotation if not already done
-            initMockupRotation();
+
+            // Initialize Three.js if not done
+            setTimeout(() => {
+                initThreeJsMockup();
+                updateBannerTexture();
+            }, 100);
         }
     });
 }
 
-// ========== Initialize Mockup 3D Rotation ==========
-let mockupRotationY = -15; // Initial rotation
+// Legacy rotation code - no longer needed but kept for reference
+let mockupRotationY = -15;
 let isDraggingMockup = false;
 let lastMouseX = 0;
 
 function initMockupRotation() {
-    const mockupPreview = document.getElementById('mockupPreview');
-    const mockupStand = document.getElementById('mockupStand');
-
-    if (!mockupPreview || !mockupStand) return;
-
-    // Remove existing listeners to prevent duplicates
-    mockupPreview.removeEventListener('mousedown', handleMockupMouseDown);
-    mockupPreview.removeEventListener('touchstart', handleMockupTouchStart);
-
-    // Mouse events
-    mockupPreview.addEventListener('mousedown', handleMockupMouseDown);
-    document.addEventListener('mousemove', handleMockupMouseMove);
-    document.addEventListener('mouseup', handleMockupMouseUp);
-
-    // Touch events for mobile
-    mockupPreview.addEventListener('touchstart', handleMockupTouchStart, { passive: false });
-    document.addEventListener('touchmove', handleMockupTouchMove, { passive: false });
-    document.addEventListener('touchend', handleMockupTouchEnd);
-
-    // Set initial rotation
-    updateMockupRotation();
+    // Now handled by Three.js
 }
 
 function handleMockupMouseDown(e) {
-    if (e.target.closest('.view-toggle-btn')) return;
-    isDraggingMockup = true;
-    lastMouseX = e.clientX;
-    e.preventDefault();
+    // Now handled by Three.js
 }
 
 function handleMockupMouseMove(e) {
-    if (!isDraggingMockup) return;
-
-    const deltaX = e.clientX - lastMouseX;
-    mockupRotationY += deltaX * 0.5; // Sensitivity
-
-    // Clamp rotation to reasonable range
-    mockupRotationY = Math.max(-60, Math.min(60, mockupRotationY));
-
-    lastMouseX = e.clientX;
-    updateMockupRotation();
+    // Now handled by Three.js
 }
 
 function handleMockupMouseUp() {
