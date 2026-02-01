@@ -2193,26 +2193,13 @@ function drawFeatherFlagWithOverlay(overlay) {
     // Clear canvas (use display dimensions since ctx is already scaled)
     ctx.clearRect(0, 0, displayWidth, displayHeight);
 
-    // SVG has viewBox 1944 x 13500, canvas uses product dimensions
-    // Scale SVG to fit canvas while maintaining aspect ratio
+    // SVG has viewBox 1944 x 13500
+    // Scale SVG to fit canvas WIDTH, height follows proportionally
     const svgAspectRatio = 1944 / 13500;
-    const canvasAspectRatio = displayWidth / displayHeight;
-
-    let drawWidth, drawHeight, drawX, drawY;
-
-    if (canvasAspectRatio > svgAspectRatio) {
-        // Canvas is wider - fit to height, center horizontally
-        drawHeight = displayHeight;
-        drawWidth = displayHeight * svgAspectRatio;
-        drawX = (displayWidth - drawWidth) / 2;
-        drawY = 0;
-    } else {
-        // Canvas is taller - fit to width, center vertically
-        drawWidth = displayWidth;
-        drawHeight = displayWidth / svgAspectRatio;
-        drawX = 0;
-        drawY = (displayHeight - drawHeight) / 2;
-    }
+    const drawWidth = displayWidth;
+    const drawHeight = displayWidth / svgAspectRatio;
+    const drawX = 0;
+    const drawY = 0;
 
     // STEP 1: Draw user's artwork (PNG overlay has transparent hole where artwork shows)
 
