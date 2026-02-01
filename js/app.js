@@ -6,26 +6,37 @@ const CONFIG = {
     API_URL: 'https://printpilot-api.vercel.app'
 };
 
-// Helper function to draw image with cover fit (maintains aspect ratio, crops to fill)
-function drawImageCover(ctx, img, canvasWidth, canvasHeight) {
+// Helper function to draw AI background with contain fit + scale/position controls
+function drawAIBackground(ctx, img, canvasWidth, canvasHeight, scale, posX, posY) {
     const imgRatio = img.width / img.height;
     const canvasRatio = canvasWidth / canvasHeight;
 
-    let drawWidth, drawHeight, offsetX, offsetY;
+    let baseWidth, baseHeight;
 
+    // Contain fit - fit entire image inside canvas
     if (imgRatio > canvasRatio) {
-        // Image is wider than canvas - fit by height, crop width
-        drawHeight = canvasHeight;
-        drawWidth = canvasHeight * imgRatio;
-        offsetX = (canvasWidth - drawWidth) / 2;
-        offsetY = 0;
+        // Image is wider - fit by width
+        baseWidth = canvasWidth;
+        baseHeight = canvasWidth / imgRatio;
     } else {
-        // Image is taller than canvas - fit by width, crop height
-        drawWidth = canvasWidth;
-        drawHeight = canvasWidth / imgRatio;
-        offsetX = 0;
-        offsetY = (canvasHeight - drawHeight) / 2;
+        // Image is taller - fit by height
+        baseHeight = canvasHeight;
+        baseWidth = canvasHeight * imgRatio;
     }
+
+    // Apply scale (100 = base contain size)
+    const scaleFactor = scale / 100;
+    const drawWidth = baseWidth * scaleFactor;
+    const drawHeight = baseHeight * scaleFactor;
+
+    // Calculate position based on posX/posY (0-100 range, 50 = centered)
+    // When image is smaller than canvas, 0 = left edge, 100 = right edge
+    // When image is larger than canvas, 0 = show left part, 100 = show right part
+    const maxOffsetX = canvasWidth - drawWidth;
+    const maxOffsetY = canvasHeight - drawHeight;
+
+    const offsetX = maxOffsetX * (posX / 100);
+    const offsetY = maxOffsetY * (posY / 100);
 
     ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
 }
@@ -305,6 +316,10 @@ let state = {
     originalImageData: null,
     backgroundImage: null,
     backgroundType: 'solid',
+    // AI background controls
+    aiBgScale: 100,
+    aiBgX: 50,
+    aiBgY: 50,
     textElements: [],
     // Photo mode controls
     photoImageScale: 100,
@@ -535,6 +550,23 @@ function initPhotoControls() {
     document.getElementById('gradColor1')?.addEventListener('input', updateCanvas);
     document.getElementById('gradColor2')?.addEventListener('input', updateCanvas);
     document.getElementById('generateBackground')?.addEventListener('click', generateAIBackground);
+
+    // AI Background controls
+    document.getElementById('aiBgScale')?.addEventListener('input', function() {
+        state.aiBgScale = parseInt(this.value);
+        document.getElementById('aiBgScaleValue').textContent = this.value;
+        updateCanvas();
+    });
+    document.getElementById('aiBgX')?.addEventListener('input', function() {
+        state.aiBgX = parseInt(this.value);
+        document.getElementById('aiBgXValue').textContent = this.value;
+        updateCanvas();
+    });
+    document.getElementById('aiBgY')?.addEventListener('input', function() {
+        state.aiBgY = parseInt(this.value);
+        document.getElementById('aiBgYValue').textContent = this.value;
+        updateCanvas();
+    });
 
     // Gradient direction
     document.getElementById('gradDirection')?.addEventListener('change', function() {
@@ -1078,6 +1110,10 @@ function resetDesignState() {
     state.originalImageData = null;
     state.backgroundImage = null;
     state.backgroundType = 'solid';
+    // AI background reset
+    state.aiBgScale = 100;
+    state.aiBgX = 50;
+    state.aiBgY = 50;
     state.textElements = [];
     // Photo mode reset
     state.photoImageScale = 100;
@@ -1722,6 +1758,7 @@ function handleBackgroundTypeChange(e) {
     document.getElementById('solidBgOptions')?.classList.add('hidden');
     document.getElementById('gradientBgOptions')?.classList.add('hidden');
     document.getElementById('aiBgOptions')?.classList.add('hidden');
+    document.getElementById('aiBgControls')?.classList.add('hidden');
 
     if (state.backgroundType === 'solid') {
         document.getElementById('solidBgOptions')?.classList.remove('hidden');
@@ -1729,6 +1766,10 @@ function handleBackgroundTypeChange(e) {
         document.getElementById('gradientBgOptions')?.classList.remove('hidden');
     } else if (state.backgroundType === 'ai') {
         document.getElementById('aiBgOptions')?.classList.remove('hidden');
+        // Show controls if AI background already exists
+        if (state.backgroundImage) {
+            document.getElementById('aiBgControls')?.classList.remove('hidden');
+        }
     }
 
     updateCanvas();
@@ -1765,6 +1806,19 @@ async function generateAIBackground() {
 
             img.onload = function() {
                 state.backgroundImage = img;
+                // Reset AI background controls to default
+                state.aiBgScale = 100;
+                state.aiBgX = 50;
+                state.aiBgY = 50;
+                // Update UI controls
+                const scaleEl = document.getElementById('aiBgScale');
+                const xEl = document.getElementById('aiBgX');
+                const yEl = document.getElementById('aiBgY');
+                if (scaleEl) { scaleEl.value = 100; document.getElementById('aiBgScaleValue').textContent = '100'; }
+                if (xEl) { xEl.value = 50; document.getElementById('aiBgXValue').textContent = '50'; }
+                if (yEl) { yEl.value = 50; document.getElementById('aiBgYValue').textContent = '50'; }
+                // Show AI background controls
+                document.getElementById('aiBgControls')?.classList.remove('hidden');
                 updateCanvas();
                 showSuccess('AI background generated!');
             };
@@ -1773,6 +1827,12 @@ async function generateAIBackground() {
                 const img2 = new Image();
                 img2.onload = function() {
                     state.backgroundImage = img2;
+                    // Reset AI background controls to default
+                    state.aiBgScale = 100;
+                    state.aiBgX = 50;
+                    state.aiBgY = 50;
+                    // Show AI background controls
+                    document.getElementById('aiBgControls')?.classList.remove('hidden');
                     updateCanvas();
                     showSuccess('AI background generated!');
                 };
@@ -1897,7 +1957,7 @@ function drawPhotoMode() {
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     } else if (state.backgroundType === 'ai' && state.backgroundImage) {
-        drawImageCover(ctx, state.backgroundImage, canvas.width, canvas.height);
+        drawAIBackground(ctx, state.backgroundImage, canvas.width, canvas.height, state.aiBgScale, state.aiBgX, state.aiBgY);
     }
 
     // Draw uploaded image with position and scale controls
@@ -2229,7 +2289,7 @@ function drawDesignToContext(targetCtx, w, h) {
         targetCtx.fillStyle = gradient;
         targetCtx.fillRect(0, 0, w, h);
     } else if (state.backgroundType === 'ai' && state.backgroundImage) {
-        drawImageCover(targetCtx, state.backgroundImage, w, h);
+        drawAIBackground(targetCtx, state.backgroundImage, w, h, state.aiBgScale, state.aiBgX, state.aiBgY);
     }
 
     // Draw uploaded image
@@ -2899,7 +2959,7 @@ async function downloadPDF() {
                 hiResCtx.fillStyle = gradient;
                 hiResCtx.fillRect(0, 0, canvas.width, canvas.height);
             } else if (state.backgroundType === 'ai' && state.backgroundImage) {
-                drawImageCover(hiResCtx, state.backgroundImage, canvas.width, canvas.height);
+                drawAIBackground(hiResCtx, state.backgroundImage, canvas.width, canvas.height, state.aiBgScale, state.aiBgX, state.aiBgY);
             }
 
             // Draw uploaded image with position and scale
