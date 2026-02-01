@@ -1514,16 +1514,10 @@ function updateCanvasSize() {
     const productHeight = state.selectedSize.height;
 
     // Calculate aspect ratio from actual dimensions
-    let aspectRatio = productWidth / productHeight;
+    const aspectRatio = productWidth / productHeight;
 
     // Use device pixel ratio for sharper rendering on high-DPI displays
     const dpr = window.devicePixelRatio || 1;
-
-    // For feather flags, use the SVG template aspect ratio (viewBox 1944 x 13500)
-    const isFeatherFlag = state.currentProduct === 'feather-flag';
-    if (isFeatherFlag) {
-        aspectRatio = 1944 / 13500; // SVG viewBox aspect ratio
-    }
 
     // For very narrow products like feather flags, ensure minimum width for quality
     const isVeryNarrow = aspectRatio < 0.2;
@@ -1989,13 +1983,13 @@ async function loadFeatherFlagOverlay() {
             try {
                 const response = await fetch(url);
                 if (response.ok) {
-                    let svgText = await response.text();
+                    const svgText = await response.text();
 
-                    // Make the gray fill transparent so artwork shows through the cutout
-                    // The .st1 class has fill: #f1f2f2 which needs to be transparent
-                    svgText = svgText.replace(/fill:\s*#f1f2f2/g, 'fill: none');
+                    // SVG uses fill-rule: evenodd which creates a transparent hole in the gray mask
+                    // The gray (#f1f2f2) covers everything EXCEPT the flag shape cutout
+                    // DO NOT modify the fill - the cutout is already transparent due to evenodd
 
-                    // Create image from modified SVG
+                    // Create image from SVG (no modifications needed)
                     const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
                     const imageUrl = URL.createObjectURL(svgBlob);
 
@@ -2199,11 +2193,26 @@ function drawFeatherFlagWithOverlay(overlay) {
     // Clear canvas (use display dimensions since ctx is already scaled)
     ctx.clearRect(0, 0, displayWidth, displayHeight);
 
-    // Canvas aspect ratio now matches SVG (1944/13500), so SVG fills entire canvas
-    const drawWidth = displayWidth;
-    const drawHeight = displayHeight;
-    const drawX = 0;
-    const drawY = 0;
+    // SVG has viewBox 1944 x 13500, canvas uses product dimensions
+    // Scale SVG to fit canvas while maintaining aspect ratio
+    const svgAspectRatio = 1944 / 13500;
+    const canvasAspectRatio = displayWidth / displayHeight;
+
+    let drawWidth, drawHeight, drawX, drawY;
+
+    if (canvasAspectRatio > svgAspectRatio) {
+        // Canvas is wider - fit to height, center horizontally
+        drawHeight = displayHeight;
+        drawWidth = displayHeight * svgAspectRatio;
+        drawX = (displayWidth - drawWidth) / 2;
+        drawY = 0;
+    } else {
+        // Canvas is taller - fit to width, center vertically
+        drawWidth = displayWidth;
+        drawHeight = displayWidth / svgAspectRatio;
+        drawX = 0;
+        drawY = (displayHeight - drawHeight) / 2;
+    }
 
     // STEP 1: Draw user's artwork (PNG overlay has transparent hole where artwork shows)
 
