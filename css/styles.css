@@ -1608,120 +1608,42 @@ a:hover {
     stroke: white;
 }
 
-/* 3D Mockup Preview */
+/* 3D Mockup Preview - Three.js */
 .mockup-preview {
-    background: linear-gradient(180deg, #f0f0f0 0%, #e0e0e0 50%, #d5d5d5 100%);
+    background: linear-gradient(180deg, #f5f5f5 0%, #e8e8e8 50%, #ddd 100%);
     border-radius: var(--radius-md);
-    padding: 30px 20px 20px;
-    min-height: 520px;
+    padding: 0;
+    min-height: 480px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-end;
-    cursor: grab;
-    user-select: none;
+    justify-content: flex-start;
     overflow: hidden;
+    position: relative;
 }
 
-.mockup-preview:active {
+.threejs-container {
+    width: 100%;
+    height: 420px;
+    cursor: grab;
+}
+
+.threejs-container:active {
     cursor: grabbing;
 }
 
-.mockup-scene {
-    position: relative;
-    perspective: 1200px;
-    perspective-origin: 50% 40%;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-/* Floor/Shadow */
-.mockup-floor {
-    position: absolute;
-    bottom: -5px;
-    width: 180px;
-    height: 35px;
-    background: radial-gradient(ellipse at center, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.05) 50%, transparent 70%);
-    border-radius: 50%;
-    z-index: 1;
-    filter: blur(3px);
-}
-
-/* Main 3D Container */
-.mockup-banner-stand {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    transform-style: preserve-3d;
-    transform: rotateY(var(--rotate-y, -15deg)) rotateX(2deg);
-    transition: transform 0.05s ease-out;
-    z-index: 2;
-}
-
-/* Top Rail/Holder - Silver bar at top */
-.mockup-top-rail {
-    width: calc(100% + 8px);
-    height: 7px;
-    background: linear-gradient(180deg, #f0f0f0 0%, #c0c0c0 20%, #a8a8a8 50%, #b8b8b8 80%, #d0d0d0 100%);
-    border-radius: 2px;
-    position: relative;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-    margin-bottom: -1px;
-}
-
-/* End caps on top rail */
-.mockup-top-rail::before,
-.mockup-top-rail::after {
-    content: '';
-    position: absolute;
-    top: -1px;
-    width: 5px;
-    height: 9px;
-    background: linear-gradient(180deg, #e0e0e0 0%, #a0a0a0 50%, #b0b0b0 100%);
-    border-radius: 1px;
-}
-
-.mockup-top-rail::before { left: -1px; }
-.mockup-top-rail::after { right: -1px; }
-
-/* Banner Display */
-.mockup-banner-display {
-    position: relative;
-    width: 140px;
-    background: white;
-    box-shadow:
-        6px 6px 20px rgba(0,0,0,0.12),
-        -2px 0 12px rgba(0,0,0,0.04);
-    overflow: hidden;
-    transform-style: preserve-3d;
-}
-
-/* Subtle lighting overlay on banner */
-.mockup-banner-display::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg,
-        rgba(0,0,0,0.02) 0%,
-        rgba(255,255,255,0.06) 15%,
-        transparent 50%,
-        rgba(0,0,0,0.01) 100%
-    );
-    pointer-events: none;
-    z-index: 10;
-}
-
-.mockup-banner-display canvas {
-    width: 100%;
-    height: auto;
+.threejs-container canvas {
+    width: 100% !important;
+    height: 100% !important;
     display: block;
 }
 
-/* Center Pole - connects banner to base */
-.mockup-pole {
+/* Legacy CSS mockup styles - kept for fallback */
+.mockup-scene {
+    display: none; /* Hidden when using Three.js */
+}
+
+.mockup-pole-legacy {
     width: 7px;
     height: 10px;
     background: linear-gradient(90deg, #a0a0a0 0%, #d8d8d8 30%, #e8e8e8 50%, #d8d8d8 70%, #a0a0a0 100%);
@@ -1811,24 +1733,27 @@ a:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    margin-top: 16px;
-    font-size: 0.72rem;
-    color: var(--text-light);
-    opacity: 0.6;
+    gap: 8px;
+    padding: 8px 16px;
+    font-size: 0.75rem;
+    color: var(--text-medium);
+    background: rgba(255,255,255,0.7);
+    border-radius: 20px;
+    margin: 10px 0;
 }
 
 .mockup-hint svg {
-    width: 14px;
-    height: 14px;
+    width: 18px;
+    height: 18px;
+    opacity: 0.7;
 }
 
 .mockup-note {
-    margin-top: 10px;
     font-size: 0.68rem;
     color: var(--text-light);
     text-align: center;
     opacity: 0.5;
+    padding-bottom: 10px;
 }
 
 .review-summary {
