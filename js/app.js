@@ -121,6 +121,41 @@ const PRODUCTS = {
         },
         canvasRatio: 0.407  // 33/81 ratio for default size
     },
+    'feather-flag': {
+        name: 'Feather Flag',
+        category: 'flags',
+        sizes: [
+            { label: 'Small (9ft)', width: 23.5, height: 78.5, price: 89.99 },
+            { label: 'Medium (10.5ft)', width: 24, height: 104, price: 109.99 },
+            { label: 'Large (14ft)', width: 28, height: 138, price: 139.99 },
+            { label: 'X-Large (18ft)', width: 24, height: 183.5, price: 179.99 }
+        ],
+        options: [
+            { id: 'ground-stake', label: 'Ground Stake (Soft ground)', price: 0, default: true },
+            { id: 'cross-base', label: 'Cross Base (Hard surfaces)', price: 29.99 },
+            { id: 'water-bag', label: 'Water Bag (For cross base)', price: 14.99 },
+            { id: 'square-base', label: 'Square Base (Heavy duty)', price: 49.99 },
+            { id: 'double-sided', label: 'Double Sided Print', price: 40 }
+        ],
+        // Print specifications from B2Sign
+        printSpecs: {
+            materials: ['4 oz Polyester mesh flag material'],
+            method: 'Dye Sublimated',
+            safetyMargins: {
+                top: 0,
+                bottom: 0,
+                left: 0,
+                right: 0
+            },
+            fileFormats: ['JPEG', 'PDF'],
+            colorSpace: 'CMYK',
+            resolution: 150,
+            maxFileSize: 300,
+            bleed: 0,
+            notes: 'Submit artwork at ordered dimensions. No crop marks or bleeds. Convert fonts to outlines. No Pantone/Spot colors.'
+        },
+        canvasRatio: 0.2  // Tall narrow flag shape
+    },
     'yard-sign': {
         name: 'Yard Signs',
         category: 'signs',
