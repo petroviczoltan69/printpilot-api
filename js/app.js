@@ -125,9 +125,6 @@ const PRODUCTS = {
         name: 'Feather Flag',
         category: 'flags',
         sizes: [
-            { label: 'Small (9ft)', width: 23.5, height: 78.5, price: 89.99 },
-            { label: 'Medium (10.5ft)', width: 24, height: 104, price: 109.99 },
-            { label: 'Large (14ft)', width: 28, height: 138, price: 139.99 },
             { label: 'X-Large (18ft)', width: 24, height: 183.5, price: 179.99 }
         ],
         options: [
@@ -1456,10 +1453,11 @@ function goToStep(step) {
         showDesignControls();
         updateCanvasSize();
 
-        // Pre-load feather flag template if needed
+        // Pre-load feather flag template and overlay if needed
         if (isFeatherFlagProduct()) {
-            console.log('Pre-loading feather flag template...');
+            console.log('Pre-loading feather flag template and overlay...');
             loadFeatherFlagTemplate();
+            loadFeatherFlagOverlay();
         }
 
         updateCanvas();
@@ -1918,12 +1916,82 @@ function isFeatherFlagProduct() {
 let featherFlagTemplateImage = null;
 let featherFlagTemplateLoading = false;
 let featherFlagPdfBytes = null;
+let featherFlagOverlayImage = null;
+let featherFlagOverlayLoading = false;
 
 // Template URLs - try multiple paths for different environments
 const FEATHER_FLAG_TEMPLATE_URLS = [
     '/FeatherAngled_XL_SingleSided_PrintThru.pdf',           // Vercel production (via route)
     '/public/FeatherAngled_XL_SingleSided_PrintThru.pdf'     // Local development
 ];
+
+// PNG overlay for preview (higher quality than PDF rendering)
+const FEATHER_FLAG_OVERLAY_URLS = [
+    '/Feather_Flag_Small__9ft__PrintReady (2).png',
+    '/public/Feather_Flag_Small__9ft__PrintReady (2).png'
+];
+
+// Feather flag shape path from SVG template (viewBox 0 0 1944 13500)
+// This defines the printable area inside the flag
+const FEATHER_FLAG_SVG_VIEWBOX = { width: 1944, height: 13500 };
+const FEATHER_FLAG_ARTWORK_PATH = new Path2D();
+// The inner cutout path that defines where artwork goes
+// Extracted from SVG: the second part of the path after the rectangle cutout
+// Points: top-right curve down to bottom-left, then back up
+FEATHER_FLAG_ARTWORK_PATH.moveTo(1852.5, 138.3);   // Start at top right
+FEATHER_FLAG_ARTWORK_PATH.lineTo(1852.5, 12377.6); // Down the right side
+FEATHER_FLAG_ARTWORK_PATH.lineTo(126, 13363.4);    // To bottom left corner
+FEATHER_FLAG_ARTWORK_PATH.lineTo(142.3, 216.9);    // Up to top area
+FEATHER_FLAG_ARTWORK_PATH.bezierCurveTo(211.3, 586.2, 1861.9, 138.3, 1852.5, 138.3); // Curve at top
+FEATHER_FLAG_ARTWORK_PATH.closePath();
+
+// ========== Load PNG overlay for high-quality preview ==========
+async function loadFeatherFlagOverlay() {
+    if (featherFlagOverlayImage) return featherFlagOverlayImage;
+    if (featherFlagOverlayLoading) return null;
+
+    featherFlagOverlayLoading = true;
+    console.log('Loading feather flag PNG overlay...');
+
+    try {
+        for (const url of FEATHER_FLAG_OVERLAY_URLS) {
+            console.log('Trying to fetch PNG overlay from:', url);
+            try {
+                const response = await fetch(url);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const imageUrl = URL.createObjectURL(blob);
+
+                    featherFlagOverlayImage = new Image();
+                    featherFlagOverlayImage.src = imageUrl;
+
+                    await new Promise((resolve, reject) => {
+                        featherFlagOverlayImage.onload = resolve;
+                        featherFlagOverlayImage.onerror = reject;
+                    });
+
+                    console.log('PNG overlay loaded successfully:', featherFlagOverlayImage.width, 'x', featherFlagOverlayImage.height);
+
+                    // Trigger re-render
+                    if (isFeatherFlagProduct() && canvas && ctx) {
+                        updateCanvas();
+                    }
+
+                    return featherFlagOverlayImage;
+                }
+            } catch (e) {
+                console.log('Failed to fetch PNG from:', url, e);
+            }
+        }
+        console.warn('Could not load feather flag PNG overlay');
+        return null;
+    } catch (error) {
+        console.error('Error loading PNG overlay:', error);
+        return null;
+    } finally {
+        featherFlagOverlayLoading = false;
+    }
+}
 
 // ========== Load and render B2Sign PDF template as image ==========
 async function loadFeatherFlagTemplate() {
@@ -2027,33 +2095,177 @@ async function loadFeatherFlagTemplate() {
 // ========== Get print area coordinates from B2Sign PDF ==========
 // These are approximate coordinates of the white print area in the PDF
 // Measured from the PDF: the print area is positioned within the page
-function getFeatherFlagPrintArea(templateWidth, templateHeight) {
-    // Based on analysis of the B2Sign PDF template
-    // The header text area is approximately 3.5% of the height
-    // User design should fill from below header to bottom
+// Get the artwork area bounds from SVG path coordinates
+// SVG viewBox is 1944 x 13500, artwork area extracted from path
+function getFeatherFlagArtworkBounds() {
+    // Artwork area bounds from SVG path analysis
+    // The flag shape goes from approximately:
+    // Top: y=138 (with curve)
+    // Bottom: y=13363
+    // Left: x=126 (at bottom), x=142 (at top)
+    // Right: x=1852
     return {
-        x: templateWidth * 0.01,        // Left margin ~1%
-        y: templateHeight * 0.035,      // Top margin ~3.5% (after header text)
-        width: templateWidth * 0.98,    // Print area width ~98%
-        height: templateHeight * 0.955  // Print area height ~95.5%
+        // Normalized to 0-1 range based on SVG viewBox (1944 x 13500)
+        left: 126 / 1944,      // ~0.065
+        top: 138 / 13500,      // ~0.01
+        right: 1852 / 1944,    // ~0.953
+        bottom: 13363 / 13500  // ~0.99
     };
 }
 
-// ========== Draw Feather Flag Canvas using PDF Template ==========
-async function drawFeatherFlagCanvas() {
-    // Try to load the template
-    const template = await loadFeatherFlagTemplate();
+// Create clipping path for feather flag shape
+function createFeatherFlagClipPath(ctx, scale, offsetX, offsetY) {
+    const svgWidth = 1944;
+    const svgHeight = 13500;
 
-    if (template) {
-        // Draw using actual PDF template
-        drawFeatherFlagWithTemplate(template);
+    ctx.beginPath();
+    // Scale and translate SVG coordinates to canvas
+    const sx = (x) => offsetX + (x / svgWidth) * scale.width;
+    const sy = (y) => offsetY + (y / svgHeight) * scale.height;
+
+    // Draw the flag shape path (the inner artwork area)
+    // This is based on the SVG template mask path
+    ctx.moveTo(sx(1852.5), sy(138.3));
+    ctx.lineTo(sx(1852.5), sy(12377.6));
+    ctx.lineTo(sx(126), sy(13363.4));
+    ctx.lineTo(sx(142.3), sy(216.9));
+    // Bezier curve at top
+    ctx.bezierCurveTo(sx(211.3), sy(586.2), sx(1861.9), sy(138.3), sx(1852.5), sy(138.3));
+    ctx.closePath();
+}
+
+// ========== Draw Feather Flag Canvas using PNG Overlay ==========
+async function drawFeatherFlagCanvas() {
+    // Load both overlay and PDF template
+    const [overlay, template] = await Promise.all([
+        loadFeatherFlagOverlay(),
+        loadFeatherFlagTemplate()
+    ]);
+
+    if (overlay) {
+        // Use PNG overlay for better quality preview
+        drawFeatherFlagWithOverlay(overlay);
+    } else if (template) {
+        // Fallback to PDF template
+        drawFeatherFlagWithPDFTemplate(template);
     } else {
-        // Fallback: draw with approximated shape
+        // Last resort: draw with approximated shape
         drawFeatherFlagFallback();
     }
 }
 
-function drawFeatherFlagWithTemplate(template) {
+function drawFeatherFlagWithOverlay(overlay) {
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Calculate scaling to fit overlay in canvas
+    const overlayAspect = overlay.width / overlay.height;
+    const canvasAspect = canvas.width / canvas.height;
+
+    let drawWidth, drawHeight, drawX, drawY;
+
+    if (overlayAspect > canvasAspect) {
+        drawWidth = canvas.width;
+        drawHeight = canvas.width / overlayAspect;
+        drawX = 0;
+        drawY = (canvas.height - drawHeight) / 2;
+    } else {
+        drawHeight = canvas.height;
+        drawWidth = canvas.height * overlayAspect;
+        drawX = (canvas.width - drawWidth) / 2;
+        drawY = 0;
+    }
+
+    // Get artwork bounds
+    const bounds = getFeatherFlagArtworkBounds();
+    const artworkX = drawX + bounds.left * drawWidth;
+    const artworkY = drawY + bounds.top * drawHeight;
+    const artworkW = (bounds.right - bounds.left) * drawWidth;
+    const artworkH = (bounds.bottom - bounds.top) * drawHeight;
+
+    // STEP 1: Draw user's design first (clipped to flag shape)
+    ctx.save();
+
+    // Create clipping path
+    createFeatherFlagClipPath(ctx, { width: drawWidth, height: drawHeight }, drawX, drawY);
+    ctx.clip();
+
+    // Draw background
+    if (state.backgroundType === 'solid') {
+        const color = document.getElementById('bgColor')?.value || '#ffffff';
+        ctx.fillStyle = color;
+        ctx.fillRect(drawX, drawY, drawWidth, drawHeight);
+    } else if (state.backgroundType === 'gradient') {
+        const color1 = document.getElementById('gradColor1')?.value || '#667eea';
+        const color2 = document.getElementById('gradColor2')?.value || '#764ba2';
+        let gradient;
+        switch (state.gradDirection) {
+            case 'horizontal':
+                gradient = ctx.createLinearGradient(drawX, drawY, drawX + drawWidth, drawY);
+                break;
+            case 'vertical':
+                gradient = ctx.createLinearGradient(drawX, drawY, drawX, drawY + drawHeight);
+                break;
+            case 'diagonal':
+                gradient = ctx.createLinearGradient(drawX, drawY, drawX + drawWidth, drawY + drawHeight);
+                break;
+            case 'radial':
+                gradient = ctx.createRadialGradient(
+                    drawX + drawWidth / 2, drawY + drawHeight / 2, 0,
+                    drawX + drawWidth / 2, drawY + drawHeight / 2, Math.max(drawWidth, drawHeight) / 2
+                );
+                break;
+            default:
+                gradient = ctx.createLinearGradient(drawX, drawY, drawX + drawWidth, drawY);
+        }
+        gradient.addColorStop(0, color1);
+        gradient.addColorStop(1, color2);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(drawX, drawY, drawWidth, drawHeight);
+    }
+
+    // Draw uploaded image (scaled to fit artwork area)
+    if (state.uploadedImage) {
+        const imgRatio = state.uploadedImage.width / state.uploadedImage.height;
+        const areaRatio = artworkW / artworkH;
+        let imgX, imgY, imgW, imgH;
+
+        if (state.photoFitMode === 'cover') {
+            if (imgRatio > areaRatio) {
+                imgH = artworkH * (state.photoImageScale / 100);
+                imgW = imgH * imgRatio;
+            } else {
+                imgW = artworkW * (state.photoImageScale / 100);
+                imgH = imgW / imgRatio;
+            }
+            imgX = artworkX + (artworkW - imgW) * state.photoImageX;
+            imgY = artworkY + (artworkH - imgH) * state.photoImageY;
+        } else {
+            imgW = artworkW * 0.9 * (state.photoImageScale / 100);
+            imgH = imgW / imgRatio;
+            imgX = artworkX + (artworkW - imgW) / 2;
+            imgY = artworkY + (artworkH - imgH) / 2;
+        }
+
+        ctx.drawImage(state.uploadedImage, imgX, imgY, imgW, imgH);
+    }
+
+    // Draw logo if in logo mode
+    if (state.designType === 'logo' && state.logoImage) {
+        const logoSize = Math.min(artworkW, artworkH) * 0.6;
+        const logoX = artworkX + (artworkW - logoSize) / 2;
+        const logoY = artworkY + (artworkH - logoSize) / 2;
+        ctx.drawImage(state.logoImage, logoX, logoY, logoSize, logoSize);
+    }
+
+    ctx.restore();
+
+    // STEP 2: Draw PNG overlay on top (template mask with guides)
+    ctx.drawImage(overlay, drawX, drawY, drawWidth, drawHeight);
+}
+
+// Fallback using PDF template rendering
+function drawFeatherFlagWithPDFTemplate(template) {
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -2064,108 +2276,92 @@ function drawFeatherFlagWithTemplate(template) {
     let drawWidth, drawHeight, drawX, drawY;
 
     if (templateAspect > canvasAspect) {
-        // Template is wider - fit to width
         drawWidth = canvas.width;
         drawHeight = canvas.width / templateAspect;
         drawX = 0;
         drawY = (canvas.height - drawHeight) / 2;
     } else {
-        // Template is taller - fit to height
         drawHeight = canvas.height;
         drawWidth = canvas.height * templateAspect;
         drawX = (canvas.width - drawWidth) / 2;
         drawY = 0;
     }
 
-    // Draw template as background
-    ctx.drawImage(template, drawX, drawY, drawWidth, drawHeight);
+    // Get artwork bounds
+    const bounds = getFeatherFlagArtworkBounds();
+    const artworkX = drawX + bounds.left * drawWidth;
+    const artworkY = drawY + bounds.top * drawHeight;
+    const artworkW = (bounds.right - bounds.left) * drawWidth;
+    const artworkH = (bounds.bottom - bounds.top) * drawHeight;
 
-    // Get print area coordinates
-    const printArea = getFeatherFlagPrintArea(drawWidth, drawHeight);
-    const printAreaX = drawX + printArea.x;
-    const printAreaY = drawY + printArea.y;
-    const printAreaW = printArea.width;
-    const printAreaH = printArea.height;
+    // Draw user's design clipped to flag shape
+    ctx.save();
+    createFeatherFlagClipPath(ctx, { width: drawWidth, height: drawHeight }, drawX, drawY);
+    ctx.clip();
 
-    // Create temporary canvas for user's design
-    const designCanvas = document.createElement('canvas');
-    designCanvas.width = canvas.width;
-    designCanvas.height = canvas.height;
-    const designCtx = designCanvas.getContext('2d');
-
-    // Draw background on design canvas
+    // Draw background
     if (state.backgroundType === 'solid') {
         const color = document.getElementById('bgColor')?.value || '#ffffff';
-        designCtx.fillStyle = color;
-        designCtx.fillRect(0, 0, designCanvas.width, designCanvas.height);
+        ctx.fillStyle = color;
+        ctx.fillRect(drawX, drawY, drawWidth, drawHeight);
     } else if (state.backgroundType === 'gradient') {
         const color1 = document.getElementById('gradColor1')?.value || '#667eea';
         const color2 = document.getElementById('gradColor2')?.value || '#764ba2';
         let gradient;
         switch (state.gradDirection) {
             case 'horizontal':
-                gradient = designCtx.createLinearGradient(0, 0, designCanvas.width, 0);
+                gradient = ctx.createLinearGradient(drawX, drawY, drawX + drawWidth, drawY);
                 break;
             case 'vertical':
-                gradient = designCtx.createLinearGradient(0, 0, 0, designCanvas.height);
-                break;
-            case 'diagonal':
-                gradient = designCtx.createLinearGradient(0, 0, designCanvas.width, designCanvas.height);
-                break;
-            case 'radial':
-                gradient = designCtx.createRadialGradient(
-                    designCanvas.width / 2, designCanvas.height / 2, 0,
-                    designCanvas.width / 2, designCanvas.height / 2, Math.max(designCanvas.width, designCanvas.height) / 2
-                );
+                gradient = ctx.createLinearGradient(drawX, drawY, drawX, drawY + drawHeight);
                 break;
             default:
-                gradient = designCtx.createLinearGradient(0, 0, designCanvas.width, 0);
+                gradient = ctx.createLinearGradient(drawX, drawY, drawX + drawWidth, drawY);
         }
         gradient.addColorStop(0, color1);
         gradient.addColorStop(1, color2);
-        designCtx.fillStyle = gradient;
-        designCtx.fillRect(0, 0, designCanvas.width, designCanvas.height);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(drawX, drawY, drawWidth, drawHeight);
     }
 
     // Draw uploaded image
     if (state.uploadedImage) {
         const imgRatio = state.uploadedImage.width / state.uploadedImage.height;
-        const canvasRatio = designCanvas.width / designCanvas.height;
-        let x, y, width, height;
+        const areaRatio = artworkW / artworkH;
+        let imgX, imgY, imgW, imgH;
 
         if (state.photoFitMode === 'cover') {
-            if (imgRatio > canvasRatio) {
-                height = designCanvas.height * (state.photoImageScale / 100);
-                width = height * imgRatio;
+            if (imgRatio > areaRatio) {
+                imgH = artworkH * (state.photoImageScale / 100);
+                imgW = imgH * imgRatio;
             } else {
-                width = designCanvas.width * (state.photoImageScale / 100);
-                height = width / imgRatio;
+                imgW = artworkW * (state.photoImageScale / 100);
+                imgH = imgW / imgRatio;
             }
-            x = (designCanvas.width - width) * state.photoImageX;
-            y = (designCanvas.height - height) * state.photoImageY;
+            imgX = artworkX + (artworkW - imgW) * state.photoImageX;
+            imgY = artworkY + (artworkH - imgH) * state.photoImageY;
         } else {
-            width = designCanvas.width * 0.9 * (state.photoImageScale / 100);
-            height = width / imgRatio;
-            x = (designCanvas.width - width) / 2;
-            y = (designCanvas.height - height) / 2;
+            imgW = artworkW * 0.9 * (state.photoImageScale / 100);
+            imgH = imgW / imgRatio;
+            imgX = artworkX + (artworkW - imgW) / 2;
+            imgY = artworkY + (artworkH - imgH) / 2;
         }
 
-        designCtx.drawImage(state.uploadedImage, x, y, width, height);
+        ctx.drawImage(state.uploadedImage, imgX, imgY, imgW, imgH);
     }
 
     // Draw logo if in logo mode
     if (state.designType === 'logo' && state.logoImage) {
-        const logoSize = Math.min(designCanvas.width, designCanvas.height) * 0.6;
-        const logoX = (designCanvas.width - logoSize) / 2;
-        const logoY = (designCanvas.height - logoSize) / 2;
-        designCtx.drawImage(state.logoImage, logoX, logoY, logoSize, logoSize);
+        const logoSize = Math.min(artworkW, artworkH) * 0.6;
+        const logoX = artworkX + (artworkW - logoSize) / 2;
+        const logoY = artworkY + (artworkH - logoSize) / 2;
+        ctx.drawImage(state.logoImage, logoX, logoY, logoSize, logoSize);
     }
 
-    // Draw user's design into the print area (with some transparency to show template underneath)
-    ctx.globalAlpha = 0.9;
-    ctx.drawImage(designCanvas, 0, 0, designCanvas.width, designCanvas.height,
-                  printAreaX, printAreaY, printAreaW, printAreaH);
-    ctx.globalAlpha = 1.0;
+    ctx.restore();
+
+    // Draw template on top
+    ctx.drawImage(template, drawX, drawY, drawWidth, drawHeight);
 }
 
 function drawFeatherFlagFallback() {
@@ -3677,10 +3873,8 @@ async function downloadFeatherFlagPDF() {
         // Load the original B2Sign PDF template
         let pdfBytes;
         if (featherFlagPdfBytes) {
-            // Use cached bytes
             pdfBytes = featherFlagPdfBytes.slice(0);
         } else {
-            // Fetch the template - try multiple URLs
             let response = null;
             for (const url of FEATHER_FLAG_TEMPLATE_URLS) {
                 try {
@@ -3703,104 +3897,109 @@ async function downloadFeatherFlagPDF() {
 
         // Get page dimensions (in points, 72 points = 1 inch)
         const { width: pageWidth, height: pageHeight } = page.getSize();
+        console.log('PDF page size:', pageWidth, 'x', pageHeight, 'points');
 
-        // B2Sign XL template dimensions (24" x 183.5" graphic area)
-        // The print area is positioned within the page with margins
-        // Based on PDF analysis, approximate print area coordinates:
-        // Note: PDF y-coordinate starts from bottom, so we need to calculate from bottom
-        const printAreaX = pageWidth * 0.01;           // ~1% from left
-        const printAreaHeight = pageHeight * 0.955;    // ~95.5% height
-        const printAreaY = pageHeight * 0.01;          // Start near bottom
-        const printAreaWidth = pageWidth * 0.98;       // ~98% width
+        // Use the same artwork bounds as preview (from SVG analysis)
+        // SVG viewBox: 1944 x 13500
+        // Artwork bounds normalized to 0-1 range
+        const bounds = getFeatherFlagArtworkBounds();
 
-        // Create high-res canvas for user's design at 150 DPI
+        // Convert bounds to PDF coordinates
+        // PDF y-coordinate starts from BOTTOM, so we need to flip
+        const artworkX = bounds.left * pageWidth;
+        const artworkWidth = (bounds.right - bounds.left) * pageWidth;
+        const artworkHeight = (bounds.bottom - bounds.top) * pageHeight;
+        // Flip Y: PDF origin is bottom-left, SVG origin is top-left
+        const artworkY = pageHeight - (bounds.bottom * pageHeight);
+
+        console.log('Artwork area:', artworkX, artworkY, artworkWidth, artworkHeight);
+
+        // Create high-res canvas for user's design
+        // Use the SVG viewBox proportions for correct aspect ratio
+        const svgWidth = 1944;
+        const svgHeight = 13500;
         const dpi = 150;
-        const graphicWidthInches = 24;
-        const graphicHeightInches = 183.5;
+
+        // Calculate canvas size based on artwork area in inches
+        const artworkWidthInches = artworkWidth / 72;
+        const artworkHeightInches = artworkHeight / 72;
 
         const printCanvas = document.createElement('canvas');
-        printCanvas.width = graphicWidthInches * dpi;
-        printCanvas.height = graphicHeightInches * dpi;
+        printCanvas.width = Math.round(artworkWidthInches * dpi);
+        printCanvas.height = Math.round(artworkHeightInches * dpi);
         const printCtx = printCanvas.getContext('2d');
 
-        // Scale for drawing
-        const scaleX = printCanvas.width / canvas.width;
-        const scaleY = printCanvas.height / canvas.height;
+        console.log('Print canvas size:', printCanvas.width, 'x', printCanvas.height);
 
-        // Start with transparent background (so template shows through)
+        // Clear canvas
         printCtx.clearRect(0, 0, printCanvas.width, printCanvas.height);
 
-        printCtx.save();
-        printCtx.scale(scaleX, scaleY);
-
-        // Draw background
+        // Draw background filling entire canvas
         if (state.backgroundType === 'solid') {
             const color = document.getElementById('bgColor')?.value || '#ffffff';
             printCtx.fillStyle = color;
-            printCtx.fillRect(0, 0, canvas.width, canvas.height);
+            printCtx.fillRect(0, 0, printCanvas.width, printCanvas.height);
         } else if (state.backgroundType === 'gradient') {
             const color1 = document.getElementById('gradColor1')?.value || '#667eea';
             const color2 = document.getElementById('gradColor2')?.value || '#764ba2';
             let gradient;
             switch (state.gradDirection) {
                 case 'horizontal':
-                    gradient = printCtx.createLinearGradient(0, 0, canvas.width, 0);
+                    gradient = printCtx.createLinearGradient(0, 0, printCanvas.width, 0);
                     break;
                 case 'vertical':
-                    gradient = printCtx.createLinearGradient(0, 0, 0, canvas.height);
+                    gradient = printCtx.createLinearGradient(0, 0, 0, printCanvas.height);
                     break;
                 case 'diagonal':
-                    gradient = printCtx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                    gradient = printCtx.createLinearGradient(0, 0, printCanvas.width, printCanvas.height);
                     break;
                 case 'radial':
                     gradient = printCtx.createRadialGradient(
-                        canvas.width / 2, canvas.height / 2, 0,
-                        canvas.width / 2, canvas.height / 2, Math.max(canvas.width, canvas.height) / 2
+                        printCanvas.width / 2, printCanvas.height / 2, 0,
+                        printCanvas.width / 2, printCanvas.height / 2, Math.max(printCanvas.width, printCanvas.height) / 2
                     );
                     break;
                 default:
-                    gradient = printCtx.createLinearGradient(0, 0, canvas.width, 0);
+                    gradient = printCtx.createLinearGradient(0, 0, printCanvas.width, 0);
             }
             gradient.addColorStop(0, color1);
             gradient.addColorStop(1, color2);
             printCtx.fillStyle = gradient;
-            printCtx.fillRect(0, 0, canvas.width, canvas.height);
+            printCtx.fillRect(0, 0, printCanvas.width, printCanvas.height);
         }
 
-        // Draw uploaded image
+        // Draw uploaded image (scaled to fit artwork area)
         if (state.uploadedImage) {
             const imgRatio = state.uploadedImage.width / state.uploadedImage.height;
-            const canvasRatio = canvas.width / canvas.height;
+            const canvasRatio = printCanvas.width / printCanvas.height;
             let x, y, width, height;
 
             if (state.photoFitMode === 'cover') {
                 if (imgRatio > canvasRatio) {
-                    height = canvas.height * (state.photoImageScale / 100);
+                    height = printCanvas.height * (state.photoImageScale / 100);
                     width = height * imgRatio;
                 } else {
-                    width = canvas.width * (state.photoImageScale / 100);
+                    width = printCanvas.width * (state.photoImageScale / 100);
                     height = width / imgRatio;
                 }
-                x = (canvas.width - width) * state.photoImageX;
-                y = (canvas.height - height) * state.photoImageY;
+                x = (printCanvas.width - width) * state.photoImageX;
+                y = (printCanvas.height - height) * state.photoImageY;
             } else {
-                width = canvas.width * 0.9 * (state.photoImageScale / 100);
+                width = printCanvas.width * 0.9 * (state.photoImageScale / 100);
                 height = width / imgRatio;
-                x = (canvas.width - width) / 2;
-                y = (canvas.height - height) / 2;
+                x = (printCanvas.width - width) / 2;
+                y = (printCanvas.height - height) / 2;
             }
             printCtx.drawImage(state.uploadedImage, x, y, width, height);
         }
 
         // Draw logo if in logo mode
         if (state.designType === 'logo' && state.logoImage) {
-            const logoSize = Math.min(canvas.width, canvas.height) * 0.6;
-            const logoX = (canvas.width - logoSize) / 2;
-            const logoY = (canvas.height - logoSize) / 2;
+            const logoSize = Math.min(printCanvas.width, printCanvas.height) * 0.6;
+            const logoX = (printCanvas.width - logoSize) / 2;
+            const logoY = (printCanvas.height - logoSize) / 2;
             printCtx.drawImage(state.logoImage, logoX, logoY, logoSize, logoSize);
         }
-
-        printCtx.restore();
 
         // Convert canvas to PNG and embed in PDF
         const pngDataUrl = printCanvas.toDataURL('image/png');
@@ -3810,15 +4009,13 @@ async function downloadFeatherFlagPDF() {
         // Embed the design image
         const designImage = await pdfDoc.embedPng(pngImageBytes);
 
-        // Draw the design image in the print area
-        // The image is drawn UNDER the existing content (cut lines stay on top)
-        // pdf-lib draws on top by default, but the template cut lines are vector
-        // so they will remain visible
+        // Draw the design image in the artwork area
+        // Position matches the ARTWORK HERE layer in the template
         page.drawImage(designImage, {
-            x: printAreaX,
-            y: printAreaY,
-            width: printAreaWidth,
-            height: printAreaHeight,
+            x: artworkX,
+            y: artworkY,
+            width: artworkWidth,
+            height: artworkHeight,
         });
 
         // Save the modified PDF
