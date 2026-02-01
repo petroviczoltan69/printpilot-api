@@ -325,6 +325,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize event listeners
     initEventListeners();
 
+    // Initialize mockup view toggle
+    initMockupViewToggle();
+
     // Initial canvas draw
     if (ctx) updateCanvas();
 
@@ -2812,6 +2815,74 @@ function updateReviewPanel() {
 function copyToFinalCanvas() {
     if (!finalCtx || !canvas) return;
     finalCtx.drawImage(canvas, 0, 0);
+
+    // Also render to mockup canvas
+    renderMockupCanvas();
+}
+
+// ========== Render Mockup Canvas ==========
+function renderMockupCanvas() {
+    const mockupCanvas = document.getElementById('mockupCanvas');
+    if (!mockupCanvas || !canvas) return;
+
+    const mockupCtx = mockupCanvas.getContext('2d');
+
+    // Set mockup canvas dimensions based on product ratio
+    if (state.selectedSize) {
+        const ratio = state.selectedSize.width / state.selectedSize.height;
+        const mockupHeight = 350; // Fixed height for display
+        const mockupWidth = mockupHeight * ratio;
+
+        mockupCanvas.width = mockupWidth;
+        mockupCanvas.height = mockupHeight;
+
+        // Update the display container width
+        const displayContainer = mockupCanvas.closest('.mockup-banner-display');
+        if (displayContainer) {
+            displayContainer.style.width = Math.min(mockupWidth, 180) + 'px';
+        }
+    }
+
+    // Draw the design onto mockup canvas
+    mockupCtx.drawImage(canvas, 0, 0, mockupCanvas.width, mockupCanvas.height);
+
+    // Add subtle overlay for realism (slight vignette effect)
+    const gradient = mockupCtx.createRadialGradient(
+        mockupCanvas.width / 2, mockupCanvas.height / 2, 0,
+        mockupCanvas.width / 2, mockupCanvas.height / 2, mockupCanvas.width
+    );
+    gradient.addColorStop(0, 'rgba(255,255,255,0)');
+    gradient.addColorStop(1, 'rgba(0,0,0,0.05)');
+    mockupCtx.fillStyle = gradient;
+    mockupCtx.fillRect(0, 0, mockupCanvas.width, mockupCanvas.height);
+}
+
+// ========== Initialize Mockup View Toggle ==========
+function initMockupViewToggle() {
+    const toggleBtns = document.querySelectorAll('.view-toggle-btn');
+    const flatPreview = document.getElementById('flatPreview');
+    const mockupPreview = document.getElementById('mockupPreview');
+
+    toggleBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const view = this.dataset.view;
+
+            // Update button states
+            toggleBtns.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+
+            // Show/hide previews
+            if (view === 'flat') {
+                flatPreview?.classList.remove('hidden');
+                mockupPreview?.classList.add('hidden');
+            } else if (view === 'mockup') {
+                flatPreview?.classList.add('hidden');
+                mockupPreview?.classList.remove('hidden');
+                // Re-render mockup when shown
+                renderMockupCanvas();
+            }
+        });
+    });
 }
 
 // ========== Add to Cart ==========
