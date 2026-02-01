@@ -1,11 +1,6 @@
 {
-  "buildCommand": null,
-  "outputDirectory": ".",
-  "routes": [
-    {
-      "src": "/FeatherAngled_XL_SingleSided_PrintThru.pdf",
-      "dest": "/public/FeatherAngled_XL_SingleSided_PrintThru.pdf"
-    }
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" }
   ]
 }
-
