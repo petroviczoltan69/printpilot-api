@@ -1514,10 +1514,16 @@ function updateCanvasSize() {
     const productHeight = state.selectedSize.height;
 
     // Calculate aspect ratio from actual dimensions
-    const aspectRatio = productWidth / productHeight;
+    let aspectRatio = productWidth / productHeight;
 
     // Use device pixel ratio for sharper rendering on high-DPI displays
     const dpr = window.devicePixelRatio || 1;
+
+    // For feather flags, use SVG template aspect ratio (1944 x 13500)
+    const isFeatherFlag = state.currentProduct === 'feather-flag';
+    if (isFeatherFlag) {
+        aspectRatio = 1944 / 13500;
+    }
 
     // For very narrow products like feather flags, ensure minimum width for quality
     const isVeryNarrow = aspectRatio < 0.2;
@@ -1525,8 +1531,8 @@ function updateCanvasSize() {
     let displayWidth, displayHeight;
 
     if (isVeryNarrow) {
-        // Feather flags: display width 200px, but render at higher resolution
-        displayWidth = 200;
+        // Feather flags: use full preview width, height follows from SVG aspect ratio
+        displayWidth = 400; // Wider for better visibility
         displayHeight = displayWidth / aspectRatio;
     } else if (aspectRatio >= 1) {
         // Landscape or square
