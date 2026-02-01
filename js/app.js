@@ -1532,7 +1532,7 @@ function updateCanvasSize() {
 
     if (isVeryNarrow) {
         // Feather flags: use full preview width, height follows from SVG aspect ratio
-        displayWidth = 400; // Wider for better visibility
+        displayWidth = 600; // Full width for better visibility
         displayHeight = displayWidth / aspectRatio;
     } else if (aspectRatio >= 1) {
         // Landscape or square
