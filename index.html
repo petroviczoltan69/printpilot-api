@@ -10,6 +10,28 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+    <!-- Login Overlay for Development -->
+    <div id="loginOverlay" class="login-overlay">
+        <div class="login-modal">
+            <div class="login-header">
+                <span class="logo-text">Print</span><span class="logo-accent">Pilot</span>
+                <p class="login-subtitle">Development Preview</p>
+            </div>
+            <form id="loginForm" class="login-form">
+                <div class="login-field">
+                    <label for="loginUsername">Username</label>
+                    <input type="text" id="loginUsername" name="username" required autocomplete="username">
+                </div>
+                <div class="login-field">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" name="password" required autocomplete="current-password">
+                </div>
+                <p id="loginError" class="login-error" style="display: none;">Invalid credentials</p>
+                <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+            </form>
+        </div>
+    </div>
+
     <!-- Header -->
     <header class="header">
         <div class="container">
@@ -77,95 +99,12 @@
         <div class="container">
             <div class="section-header">
                 <h2 class="section-title">Our Products</h2>
-                <p class="section-subtitle">Choose from our wide selection of custom printed products</p>
-            </div>
-
-            <!-- Category Tabs -->
-            <div class="category-tabs">
-                <button class="category-tab active" data-category="all">All Products</button>
-                <button class="category-tab" data-category="banners">Banners & Backdrops</button>
-                <button class="category-tab" data-category="flags">Flags</button>
-                <button class="category-tab" data-category="signs">Signs & Displays</button>
-                <button class="category-tab" data-category="tradeshow">Trade Show</button>
+                <p class="section-subtitle">Custom printed products for your business</p>
             </div>
 
             <!-- Products Grid -->
             <div class="products-grid">
-                <!-- Banners & Backdrops -->
-                <div class="product-card" data-category="banners" data-product="vinyl-banner">
-                    <div class="product-icon-wrapper">
-                        <svg class="product-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-                            <line x1="2" y1="20" x2="22" y2="20"></line>
-                            <circle cx="5" cy="6" r="1"></circle>
-                            <circle cx="19" cy="6" r="1"></circle>
-                            <circle cx="5" cy="14" r="1"></circle>
-                            <circle cx="19" cy="14" r="1"></circle>
-                        </svg>
-                        <span class="product-badge">Popular</span>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Vinyl Banner</h3>
-                        <p class="product-desc">Durable outdoor/indoor banners</p>
-                        <div class="product-price">From $29.99</div>
-                    </div>
-                </div>
-
-                <div class="product-card" data-category="banners" data-product="mesh-banner">
-                    <div class="product-icon-wrapper">
-                        <svg class="product-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-                            <line x1="6" y1="3" x2="6" y2="17"></line>
-                            <line x1="10" y1="3" x2="10" y2="17"></line>
-                            <line x1="14" y1="3" x2="14" y2="17"></line>
-                            <line x1="18" y1="3" x2="18" y2="17"></line>
-                            <line x1="2" y1="7" x2="22" y2="7"></line>
-                            <line x1="2" y1="11" x2="22" y2="11"></line>
-                        </svg>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Mesh Banner</h3>
-                        <p class="product-desc">Wind-resistant outdoor banners</p>
-                        <div class="product-price">From $39.99</div>
-                    </div>
-                </div>
-
-                <div class="product-card" data-category="banners" data-product="photo-backdrop">
-                    <div class="product-icon-wrapper">
-                        <svg class="product-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <rect x="3" y="3" width="18" height="18" rx="2"></rect>
-                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                            <path d="M21 15l-5-5L5 21"></path>
-                            <line x1="3" y1="1" x2="3" y2="3"></line>
-                            <line x1="21" y1="1" x2="21" y2="3"></line>
-                        </svg>
-                        <span class="product-badge bestseller">Best Seller</span>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Photo Backdrop</h3>
-                        <p class="product-desc">Step & repeat for events</p>
-                        <div class="product-price">From $89.99</div>
-                    </div>
-                </div>
-
-                <div class="product-card" data-category="banners" data-product="retractable-banner">
-                    <div class="product-icon-wrapper">
-                        <svg class="product-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <rect x="6" y="2" width="12" height="18" rx="1"></rect>
-                            <line x1="6" y1="20" x2="18" y2="20"></line>
-                            <path d="M4 22h16"></path>
-                            <path d="M8 22v-2"></path>
-                            <path d="M16 22v-2"></path>
-                        </svg>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Retractable Banner</h3>
-                        <p class="product-desc">Portable roll-up stands</p>
-                        <div class="product-price">From $69.99</div>
-                    </div>
-                </div>
-
-                <!-- Flags -->
+                <!-- Feather Flag -->
                 <div class="product-card" data-category="flags" data-product="feather-flag">
                     <div class="product-icon-wrapper">
                         <svg class="product-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -173,117 +112,12 @@
                             <path d="M4 2c0 0 3-1 6 1s6 1 9-1v10c-3 2-6 2-9 0s-6-1-6 1"></path>
                             <path d="M4 15c0 0 3-1 6 1s6 1 9-1"></path>
                         </svg>
-                        <span class="product-badge">New</span>
+                        <span class="product-badge">Available</span>
                     </div>
                     <div class="product-info">
                         <h3 class="product-name">Feather Flag</h3>
                         <p class="product-desc">Eye-catching outdoor flags</p>
                         <div class="product-price">From $89.99</div>
-                    </div>
-                </div>
-
-                <!-- Signs & Displays -->
-                <div class="product-card" data-category="signs" data-product="yard-sign">
-                    <div class="product-icon-wrapper">
-                        <svg class="product-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <rect x="4" y="3" width="16" height="10" rx="1"></rect>
-                            <line x1="12" y1="13" x2="12" y2="21"></line>
-                            <line x1="8" y1="21" x2="16" y2="21"></line>
-                        </svg>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Yard Signs</h3>
-                        <p class="product-desc">Coroplast with H-stakes</p>
-                        <div class="product-price">From $12.99</div>
-                    </div>
-                </div>
-
-                <div class="product-card" data-category="signs" data-product="a-frame-sign">
-                    <div class="product-icon-wrapper">
-                        <svg class="product-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <path d="M12 2L4 22h16L12 2z"></path>
-                            <line x1="8" y1="12" x2="16" y2="12"></line>
-                        </svg>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">A-Frame Signs</h3>
-                        <p class="product-desc">Sidewalk sandwich boards</p>
-                        <div class="product-price">From $49.99</div>
-                    </div>
-                </div>
-
-                <div class="product-card" data-category="signs" data-product="foam-board">
-                    <div class="product-icon-wrapper">
-                        <svg class="product-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <rect x="3" y="3" width="18" height="18" rx="2"></rect>
-                            <line x1="3" y1="9" x2="21" y2="9"></line>
-                            <line x1="9" y1="21" x2="9" y2="9"></line>
-                        </svg>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Foam Board Signs</h3>
-                        <p class="product-desc">Lightweight indoor displays</p>
-                        <div class="product-price">From $19.99</div>
-                    </div>
-                </div>
-
-                <div class="product-card" data-category="signs" data-product="acrylic-sign">
-                    <div class="product-icon-wrapper">
-                        <svg class="product-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <rect x="3" y="3" width="18" height="18" rx="2"></rect>
-                            <circle cx="12" cy="12" r="4"></circle>
-                        </svg>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Acrylic Signs</h3>
-                        <p class="product-desc">Premium office signage</p>
-                        <div class="product-price">From $59.99</div>
-                    </div>
-                </div>
-
-                <!-- Trade Show -->
-                <div class="product-card" data-category="tradeshow" data-product="popup-display">
-                    <div class="product-icon-wrapper">
-                        <svg class="product-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <path d="M2 6c4-2 8-2 10 0s6 2 10 0v14c-4 2-8 2-10 0s-6-2-10 0V6z"></path>
-                            <line x1="12" y1="6" x2="12" y2="20"></line>
-                        </svg>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Pop-up Displays</h3>
-                        <p class="product-desc">Curved & straight walls</p>
-                        <div class="product-price">From $299.99</div>
-                    </div>
-                </div>
-
-                <div class="product-card" data-category="tradeshow" data-product="canopy-tent">
-                    <div class="product-icon-wrapper">
-                        <svg class="product-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <path d="M3 10L12 3l9 7"></path>
-                            <path d="M5 10v10"></path>
-                            <path d="M19 10v10"></path>
-                            <line x1="5" y1="20" x2="19" y2="20"></line>
-                        </svg>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Canopy Tents</h3>
-                        <p class="product-desc">Custom printed event tents</p>
-                        <div class="product-price">From $399.99</div>
-                    </div>
-                </div>
-
-                <div class="product-card" data-category="tradeshow" data-product="fabric-backdrop">
-                    <div class="product-icon-wrapper">
-                        <svg class="product-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <rect x="2" y="4" width="20" height="16" rx="2"></rect>
-                            <path d="M2 8c3-1 5-1 7 0s4 1 7 0 5-1 6 0"></path>
-                            <path d="M2 14c3-1 5-1 7 0s4 1 7 0 5-1 6 0"></path>
-                        </svg>
-                    </div>
-                    <div class="product-info">
-                        <h3 class="product-name">Fabric Backdrops</h3>
-                        <p class="product-desc">Tension fabric displays</p>
-                        <div class="product-price">From $149.99</div>
                     </div>
                 </div>
             </div>
@@ -1032,6 +866,12 @@
                             <h4>Live Preview</h4>
                             <span id="previewSize">6ft x 3ft</span>
                         </div>
+
+                        <!-- Navigation buttons at top of preview -->
+                        <div class="step-nav" style="border-top: none; border-bottom: 1px solid var(--border); padding: 0 0 16px 0; margin: 0 0 16px 0;">
+                            <button id="step3Back" class="btn btn-secondary">Back</button>
+                            <button id="step3Next" class="btn btn-primary">Review Design</button>
+                        </div>
                         <!-- Bleed marks and safe area options hidden for cleaner UI -->
                         <div class="preview-options" style="display: none;">
                             <label>
@@ -1062,11 +902,6 @@
                             <p>Processing...</p>
                         </div>
                     </div>
-                </div>
-
-                <div class="step-nav">
-                    <button id="step3Back" class="btn btn-secondary">Back</button>
-                    <button id="step3Next" class="btn btn-primary">Review Design</button>
                 </div>
             </div>
 
@@ -1138,19 +973,17 @@
                             Add to Cart
                         </button>
 
-                        <button id="downloadPDF" class="btn btn-secondary btn-full">
+                        <button id="downloadSVG" class="btn btn-secondary btn-full">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                 <polyline points="7 10 12 15 17 10"></polyline>
                                 <line x1="12" y1="15" x2="12" y2="3"></line>
                             </svg>
-                            Download Print-Ready PDF
+                            Download SVG (Illustrator Editable)
                         </button>
-                    </div>
-                </div>
 
-                <div class="step-nav">
-                    <button id="step4Back" class="btn btn-secondary">Back to Edit</button>
+                        <button id="step4Back" class="btn btn-outline btn-full" style="margin-top: 16px;">Back to Edit</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1205,11 +1038,7 @@
                 <div class="footer-links">
                     <h4>Products</h4>
                     <ul>
-                        <li><a href="#products">Vinyl Banners</a></li>
-                        <li><a href="#products">Photo Backdrops</a></li>
-                        <li><a href="#products">Retractable Banners</a></li>
-                        <li><a href="#products">Yard Signs</a></li>
-                        <li><a href="#products">Pop-up Displays</a></li>
+                        <li><a href="#products">Feather Flags</a></li>
                     </ul>
                 </div>
                 <div class="footer-links">
@@ -1242,8 +1071,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <!-- Three.js for 3D Mockup -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OpenType.js for text-to-path conversion -->
+    <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
     <!-- Template Engine Module -->
     <script src="js/modules/TemplateEngine.js"></script>
+    <!-- WYSIWYG Coordinate System - CRITICAL for viewer/export matching -->
+    <script src="js/wysiwyg.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

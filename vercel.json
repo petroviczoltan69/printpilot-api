@@ -8,6 +8,10 @@
   ],
   "routes": [
     {
+      "src": "/Feather_Flag_Small__9ft__PrintReady \\(2\\)\\.svg",
+      "dest": "/public/Feather_Flag_Small__9ft__PrintReady (2).svg"
+    },
+    {
       "src": "/(.*)",
       "dest": "/$1"
     }
