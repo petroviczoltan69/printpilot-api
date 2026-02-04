@@ -1,136 +1,39 @@
 {
-  "products": {
-    "feather-flag": {
-      "id": "feather-flag",
-      "name": "Feather Flag",
-      "category": "flags",
-      "description": "Eye-catching feather flags for outdoor advertising",
-      "sizes": [
-        {
-          "id": "xl",
-          "label": "X-Large (18ft)",
-          "template": "feather-flag-xl.svg",
-          "dimensions": {
-            "width": 24,
-            "height": 183.5,
-            "unit": "inches"
-          },
-          "print": {
-            "dpi": 150,
-            "colorSpace": "CMYK",
-            "bleed": 0.125
-          },
-          "price": 179.99
-        }
-      ],
-      "options": [
-        { "id": "ground-stake", "label": "Ground Stake (Soft ground)", "price": 0, "default": true },
-        { "id": "cross-base", "label": "Cross Base (Hard surfaces)", "price": 29.99 },
-        { "id": "water-bag", "label": "Water Bag (For cross base)", "price": 14.99 },
-        { "id": "square-base", "label": "Square Base (Heavy duty)", "price": 49.99 }
-      ]
-    },
-    "teardrop-flag": {
-      "id": "teardrop-flag",
-      "name": "Teardrop Flag",
-      "category": "flags",
-      "description": "Classic teardrop shaped flags",
-      "sizes": [
-        {
-          "id": "medium",
-          "label": "Medium (10ft)",
-          "template": "teardrop-flag-medium.svg",
-          "dimensions": {
-            "width": 30,
-            "height": 96,
-            "unit": "inches"
-          },
-          "print": {
-            "dpi": 150,
-            "colorSpace": "CMYK",
-            "bleed": 0.125
-          },
-          "price": 129.99
-        }
-      ],
-      "options": [
-        { "id": "ground-stake", "label": "Ground Stake", "price": 0, "default": true },
-        { "id": "cross-base", "label": "Cross Base", "price": 29.99 }
-      ]
-    },
-    "vinyl-banner": {
-      "id": "vinyl-banner",
-      "name": "Vinyl Banner",
-      "category": "banners",
-      "description": "Durable outdoor/indoor vinyl banners",
-      "sizes": [
-        {
-          "id": "3x6",
-          "label": "3ft x 6ft",
-          "template": null,
-          "dimensions": {
-            "width": 72,
-            "height": 36,
-            "unit": "inches"
-          },
-          "print": {
-            "dpi": 150,
-            "colorSpace": "CMYK",
-            "bleed": 0.25
-          },
-          "price": 29.99
-        },
-        {
-          "id": "4x8",
-          "label": "4ft x 8ft",
-          "template": null,
-          "dimensions": {
-            "width": 96,
-            "height": 48,
-            "unit": "inches"
-          },
-          "print": {
-            "dpi": 150,
-            "colorSpace": "CMYK",
-            "bleed": 0.25
-          },
-          "price": 49.99
-        }
-      ],
-      "options": [
-        { "id": "grommets", "label": "Grommets", "price": 0, "default": true },
-        { "id": "pole-pockets", "label": "Pole Pockets", "price": 9.99 },
-        { "id": "hemmed", "label": "Hemmed Edges", "price": 4.99 }
-      ]
-    }
+  "feather_flag_xl_single_print_thru": {
+    "name": "Feather Angled Flag X-Large 18ft - Single Sided Print Thru",
+    "template": "FeatherAngled_XL_SingleSided_PrintThru unlocked1.pdf",
+    "svg_template": "feather-flag-xl CMYK.svg",
+    "width_pt": 1944,
+    "height_pt": 13500,
+    "width_in": 27,
+    "height_in": 187.5,
+    "description": "Single sided print thru feather flag"
   },
-  "categories": {
-    "flags": {
-      "name": "Flags",
-      "icon": "flag",
-      "description": "Outdoor advertising flags"
-    },
-    "banners": {
-      "name": "Banners & Backdrops",
-      "icon": "banner",
-      "description": "Vinyl banners and event backdrops"
-    },
-    "signs": {
-      "name": "Signs & Displays",
-      "icon": "sign",
-      "description": "Yard signs, A-frames, and displays"
-    },
-    "tradeshow": {
-      "name": "Trade Show",
-      "icon": "booth",
-      "description": "Pop-up displays and booth graphics"
-    }
+  "feather_flag_xl_double_sided": {
+    "name": "Feather Angled Flag X-Large 18ft - Double Sided",
+    "template": "FeatherAngled_XL_DoubleSided.pdf",
+    "width_pt": 1944,
+    "height_pt": 13500,
+    "width_in": 27,
+    "height_in": 187.5,
+    "description": "Double sided feather flag with block-out"
   },
-  "templateSchema": {
-    "version": "1.0",
-    "requiredLayers": ["TEMPLATE_MASK"],
-    "optionalLayers": ["ARTWORK_HERE", "BACKGROUND", "GUIDELINES"],
-    "maskClass": "st1",
-    "artworkPathId": "artwork-area"
+  "feather_flag_xl_single_reverse": {
+    "name": "Feather Angled Flag X-Large 18ft - Single Sided Reverse",
+    "template": "FeatherAngled_XL_SingleSided_PrintThru_Reverse.pdf",
+    "width_pt": 1944,
+    "height_pt": 13500,
+    "width_in": 27,
+    "height_in": 187.5,
+    "description": "Single sided reverse print feather flag"
+  },
+  "canopy_10x10": {
+    "name": "Canopy Tent 10x10",
+    "template": "canopy.pdf",
+    "width_pt": 7200,
+    "height_pt": 7200,
+    "width_in": 100,
+    "height_in": 100,
+    "description": "10x10 feet canopy tent top"
   }
 }
