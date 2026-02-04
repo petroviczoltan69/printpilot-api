@@ -1,11 +1,407 @@
 // PrintPilot - Main Application
 // Redesigned with step-by-step wizard and multiple design modes
 
+// ========== Development Login ==========
+(function() {
+    const DEV_CREDENTIALS = {
+        username: 'prinpilottesting2026',
+        password: 'C_PXgur*EML_WRov8JQx77bU'
+    };
+    const SESSION_KEY = 'printpilot_dev_auth';
+
+    // Check if already authenticated
+    if (sessionStorage.getItem(SESSION_KEY) === 'true') {
+        document.getElementById('loginOverlay')?.classList.add('hidden');
+    } else {
+        document.getElementById('loginOverlay')?.classList.remove('hidden');
+    }
+
+    // Handle login form
+    document.addEventListener('DOMContentLoaded', function() {
+        const loginForm = document.getElementById('loginForm');
+        const loginError = document.getElementById('loginError');
+        const loginOverlay = document.getElementById('loginOverlay');
+
+        if (loginForm) {
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const username = document.getElementById('loginUsername').value;
+                const password = document.getElementById('loginPassword').value;
+
+                if (username === DEV_CREDENTIALS.username && password === DEV_CREDENTIALS.password) {
+                    sessionStorage.setItem(SESSION_KEY, 'true');
+                    loginOverlay.classList.add('hidden');
+                } else {
+                    loginError.style.display = 'block';
+                    document.getElementById('loginPassword').value = '';
+                }
+            });
+        }
+    });
+})();
+
 // ========== Configuration ==========
 const CONFIG = {
     API_URL: 'https://printpilot-api.vercel.app',
     RAILWAY_API_URL: 'https://printpilot-pdf-api-production.up.railway.app'
 };
+
+// ========== SVG Namespace ==========
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const XLINK_NS = 'http://www.w3.org/1999/xlink';
+
+// ========== Font Configuration for Vector Export ==========
+// Maps UI font names to actual font files
+// Using Google Fonts alternatives for system fonts that aren't freely available
+const FONT_URLS = {
+    // Impact alternative - Anton is very similar bold display font
+    'Impact': '/fonts/Anton-Regular.ttf',
+    // Arial Black alternative - Oswald Bold is similar
+    'Arial Black': '/fonts/Oswald-Bold.ttf',
+    // Georgia alternative - Source Serif
+    'Georgia': '/fonts/SourceSerif4-Regular.ttf',
+    // Helvetica/Arial - Roboto is a good substitute
+    'Helvetica': '/fonts/Roboto-Regular.ttf',
+    'Arial': '/fonts/Roboto-Regular.ttf',
+    // Default fallback
+    'default': '/fonts/Roboto-Regular.ttf'
+};
+
+// Cache for loaded fonts (opentype.js Font objects)
+const fontCache = new Map();
+
+// ========== Viewer Dimensions Cache for SVG Export ==========
+// Stores normalized dimensions (0-1) calculated during viewer rendering
+// Used by SVG export to match viewer appearance exactly
+const viewerDimensions = {
+    highlight: {
+        // Pattern (background) dimenzije - normalizovane (0-1)
+        patternLogoWidthNorm: 0,
+        patternLogoHeightNorm: 0,
+        patternSpacingNorm: 0,
+        // Highlight (centered) logo dimenzije - normalizovane
+        highlightWidthNorm: 0,
+        highlightHeightNorm: 0,
+        // Text offset i padding
+        textOffsetNorm: 0,
+        // Rotation i offset
+        rotation: 0,
+        offsetXNorm: 0,
+        offsetYNorm: 0
+    },
+    grid: {
+        logoWidthNorm: 0,
+        logoHeightNorm: 0,
+        spacingNorm: 0,
+        rotation: 0,
+        offsetXNorm: 0,
+        offsetYNorm: 0
+    },
+    single: {
+        logoWidthNorm: 0,
+        logoHeightNorm: 0,
+        logoXNorm: 0,
+        logoYNorm: 0
+    }
+};
+
+/**
+ * Load a font file using opentype.js
+ * @param {string} fontName - Name of the font (e.g., 'Impact', 'Arial')
+ * @returns {Promise<opentype.Font>} - Loaded font object
+ */
+async function loadFont(fontName) {
+    // Return from cache if already loaded
+    if (fontCache.has(fontName)) {
+        return fontCache.get(fontName);
+    }
+
+    // Get font URL, fallback to default if not found
+    const fontUrl = FONT_URLS[fontName] || FONT_URLS['default'];
+
+    try {
+        // opentype.load returns a Promise
+        const font = await opentype.load(fontUrl);
+        fontCache.set(fontName, font);
+        console.log(`Font loaded: ${fontName} from ${fontUrl}`);
+        return font;
+    } catch (error) {
+        console.warn(`Failed to load font ${fontName}, using default:`, error);
+        // Try loading default font
+        if (fontName !== 'default' && !fontCache.has('default')) {
+            const defaultFont = await opentype.load(FONT_URLS['default']);
+            fontCache.set('default', defaultFont);
+            return defaultFont;
+        }
+        throw error;
+    }
+}
+
+// ========== SVG Helper Functions for Vector Export ==========
+
+/**
+ * @deprecated Use WYSIWYG.createExportTransform() instead
+ * This function is kept for backwards compatibility but should not be used directly.
+ * All coordinate transformations should go through the WYSIWYG module (js/wysiwyg.js)
+ * to ensure viewer and export remain in sync.
+ *
+ * Creates a coordinate transformer for converting canvas coordinates to SVG coordinates
+ * @param {number} svgWidth - SVG viewBox width
+ * @param {number} svgHeight - SVG viewBox height
+ * @param {number} canvasWidth - Canvas display width (use canvas.displayWidth!)
+ * @param {number} canvasHeight - Canvas display height (use canvas.displayHeight!)
+ * @returns {Object} - Transformer with x(), y(), size(), scaleX, scaleY methods
+ */
+function createSVGCoordinateTransformer(svgWidth, svgHeight, canvasWidth, canvasHeight) {
+    console.warn('createSVGCoordinateTransformer is deprecated. Use WYSIWYG.createExportTransform() instead.');
+    return {
+        // Convert normalized (0-1) position to SVG coordinate
+        x: (normalized) => normalized * svgWidth,
+        y: (normalized) => normalized * svgHeight,
+        // Scale factors for converting canvas pixels to SVG units
+        scaleX: svgWidth / canvasWidth,
+        scaleY: svgHeight / canvasHeight,
+        // Convert canvas pixel size to SVG units (uses average scale)
+        size: (canvasPixels) => canvasPixels * ((svgWidth / canvasWidth + svgHeight / canvasHeight) / 2),
+        // SVG dimensions for reference
+        width: svgWidth,
+        height: svgHeight
+    };
+}
+
+/**
+ * Creates an SVG gradient definition
+ * @param {Document} svgDoc - SVG document
+ * @param {string} id - Gradient ID
+ * @param {string} color1 - Start color (hex)
+ * @param {string} color2 - End color (hex)
+ * @param {string} direction - 'horizontal', 'vertical', 'diagonal', or 'radial'
+ * @returns {Element} - SVG <defs> element containing the gradient
+ */
+function createSVGGradient(svgDoc, id, color1, color2, direction) {
+    const defs = svgDoc.createElementNS(SVG_NS, 'defs');
+    let gradient;
+
+    if (direction === 'radial') {
+        gradient = svgDoc.createElementNS(SVG_NS, 'radialGradient');
+        gradient.setAttribute('id', id);
+        gradient.setAttribute('cx', '50%');
+        gradient.setAttribute('cy', '50%');
+        gradient.setAttribute('r', '70.7%'); // Covers corners (sqrt(2)/2 * 100%)
+    } else {
+        gradient = svgDoc.createElementNS(SVG_NS, 'linearGradient');
+        gradient.setAttribute('id', id);
+
+        switch(direction) {
+            case 'horizontal':
+                gradient.setAttribute('x1', '0%');
+                gradient.setAttribute('y1', '0%');
+                gradient.setAttribute('x2', '100%');
+                gradient.setAttribute('y2', '0%');
+                break;
+            case 'vertical':
+                gradient.setAttribute('x1', '0%');
+                gradient.setAttribute('y1', '0%');
+                gradient.setAttribute('x2', '0%');
+                gradient.setAttribute('y2', '100%');
+                break;
+            case 'diagonal':
+            default:
+                gradient.setAttribute('x1', '0%');
+                gradient.setAttribute('y1', '0%');
+                gradient.setAttribute('x2', '100%');
+                gradient.setAttribute('y2', '100%');
+                break;
+        }
+    }
+
+    // Add color stops
+    const stop1 = svgDoc.createElementNS(SVG_NS, 'stop');
+    stop1.setAttribute('offset', '0%');
+    stop1.setAttribute('stop-color', color1);
+
+    const stop2 = svgDoc.createElementNS(SVG_NS, 'stop');
+    stop2.setAttribute('offset', '100%');
+    stop2.setAttribute('stop-color', color2);
+
+    gradient.appendChild(stop1);
+    gradient.appendChild(stop2);
+    defs.appendChild(gradient);
+
+    return defs;
+}
+
+/**
+ * Converts text to SVG path using opentype.js
+ * @param {Document} svgDoc - SVG document
+ * @param {string} text - Text to convert
+ * @param {number} x - X position (center of text)
+ * @param {number} y - Y position (baseline)
+ * @param {number} fontSize - Font size in SVG units
+ * @param {string} fontName - Font name
+ * @param {string} color - Fill color (hex)
+ * @param {string} textAlign - 'left', 'center', or 'right'
+ * @returns {Promise<Element>} - SVG <path> element
+ */
+async function createTextPath(svgDoc, text, x, y, fontSize, fontName, color, textAlign = 'center') {
+    const font = await loadFont(fontName);
+
+    // Get text width for alignment
+    const textWidth = font.getAdvanceWidth(text, fontSize);
+
+    // Adjust x position based on alignment
+    let adjustedX = x;
+    if (textAlign === 'center') {
+        adjustedX = x - textWidth / 2;
+    } else if (textAlign === 'right') {
+        adjustedX = x - textWidth;
+    }
+
+    // Generate path from text
+    const path = font.getPath(text, adjustedX, y, fontSize);
+    const pathData = path.toPathData(2); // 2 decimal places precision
+
+    const pathEl = svgDoc.createElementNS(SVG_NS, 'path');
+    pathEl.setAttribute('d', pathData);
+    pathEl.setAttribute('fill', color);
+
+    return pathEl;
+}
+
+/**
+ * Embeds an SVG logo inline (preserves vector quality)
+ * @param {Document} svgDoc - Target SVG document
+ * @param {string} logoSvgData - Original SVG string data
+ * @param {number} x - X position
+ * @param {number} y - Y position
+ * @param {number} width - Target width
+ * @param {number} height - Target height
+ * @returns {Element} - SVG <g> group element containing the logo
+ */
+function embedSVGLogo(svgDoc, logoSvgData, x, y, width, height) {
+    const parser = new DOMParser();
+    const logoDoc = parser.parseFromString(logoSvgData, 'image/svg+xml');
+    const logoSvg = logoDoc.documentElement;
+
+    // Check for parse errors
+    const parseError = logoDoc.querySelector('parsererror');
+    if (parseError) {
+        console.error('Error parsing SVG logo:', parseError.textContent);
+        return null;
+    }
+
+    // Extract CSS styles and build a class-to-fill map
+    const styleMap = {};
+    const styleEl = logoSvg.querySelector('style');
+    if (styleEl) {
+        const cssText = styleEl.textContent;
+        // Parse CSS rules like ".st0 { fill: #047bc1; }"
+        const ruleRegex = /\.([a-zA-Z0-9_-]+)\s*\{([^}]+)\}/g;
+        let match;
+        while ((match = ruleRegex.exec(cssText)) !== null) {
+            const className = match[1];
+            const rules = match[2];
+            // Extract fill color
+            const fillMatch = rules.match(/fill:\s*(#[a-fA-F0-9]{3,6}|[a-zA-Z]+)/);
+            if (fillMatch) {
+                styleMap[className] = fillMatch[1];
+            }
+        }
+    }
+
+    // Get original viewBox or dimensions
+    let vb = logoSvg.getAttribute('viewBox')?.split(/[\s,]+/).map(Number);
+    if (!vb || vb.length !== 4) {
+        // Try to get from width/height attributes
+        const svgW = parseFloat(logoSvg.getAttribute('width')) || 100;
+        const svgH = parseFloat(logoSvg.getAttribute('height')) || 100;
+        vb = [0, 0, svgW, svgH];
+    }
+
+    // Calculate scale to fit target dimensions
+    const scaleX = width / vb[2];
+    const scaleY = height / vb[3];
+
+    // Create wrapper group with transform
+    const g = svgDoc.createElementNS(SVG_NS, 'g');
+    g.setAttribute('transform', `translate(${x}, ${y}) scale(${scaleX}, ${scaleY})`);
+
+    // Function to apply inline fills from CSS classes
+    function applyInlineFills(element) {
+        if (element.nodeType !== 1) return; // Skip non-element nodes
+
+        const className = element.getAttribute('class');
+        if (className) {
+            // Check each class for fill color
+            const classes = className.split(/\s+/);
+            for (const cls of classes) {
+                if (styleMap[cls]) {
+                    // Only set fill if not already present
+                    if (!element.getAttribute('fill')) {
+                        element.setAttribute('fill', styleMap[cls]);
+                    }
+                    break;
+                }
+            }
+            // IMPORTANT: Remove class attribute to avoid Illustrator conflicts
+            element.removeAttribute('class');
+        }
+        // Recurse into children
+        Array.from(element.children).forEach(child => applyInlineFills(child));
+    }
+
+    // Copy child elements (skip defs/style, apply inline fills)
+    Array.from(logoSvg.children).forEach(child => {
+        // Skip style and defs elements - we've extracted the styles
+        if (child.tagName.toLowerCase() === 'style' || child.tagName.toLowerCase() === 'defs') {
+            return;
+        }
+        const imported = svgDoc.importNode(child, true);
+        applyInlineFills(imported);
+        g.appendChild(imported);
+    });
+
+    return g;
+}
+
+/**
+ * Creates an SVG image element for raster images (PNG/JPG)
+ * @param {Document} svgDoc - SVG document
+ * @param {string} dataUrl - Base64 data URL of the image
+ * @param {number} x - X position
+ * @param {number} y - Y position
+ * @param {number} width - Width
+ * @param {number} height - Height
+ * @param {string} preserveAspectRatio - SVG preserveAspectRatio value
+ * @returns {Element} - SVG <image> element
+ */
+function createSVGImage(svgDoc, dataUrl, x, y, width, height, preserveAspectRatio = 'xMidYMid slice') {
+    const img = svgDoc.createElementNS(SVG_NS, 'image');
+    img.setAttribute('x', x.toString());
+    img.setAttribute('y', y.toString());
+    img.setAttribute('width', width.toString());
+    img.setAttribute('height', height.toString());
+    img.setAttribute('preserveAspectRatio', preserveAspectRatio);
+    img.setAttributeNS(XLINK_NS, 'xlink:href', dataUrl);
+    return img;
+}
+
+/**
+ * Converts an Image object to a high-quality data URL
+ * @param {HTMLImageElement} img - Image element
+ * @param {string} format - 'image/png' or 'image/jpeg'
+ * @param {number} quality - JPEG quality (0-1), ignored for PNG
+ * @returns {string} - Data URL
+ */
+function imageToDataUrl(img, format = 'image/png', quality = 1.0) {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth || img.width;
+    canvas.height = img.naturalHeight || img.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    return canvas.toDataURL(format, quality);
+}
 
 // ========== Template Engine Instance ==========
 // Universal template loader for products with SVG templates
@@ -502,8 +898,11 @@ function initEventListeners() {
     document.getElementById('addToCart')?.addEventListener('click', handleAddToCart);
     document.querySelector('.modal-backdrop')?.addEventListener('click', closeCartModal);
 
-    // PDF Download
-    document.getElementById('downloadPDF')?.addEventListener('click', downloadPDF);
+    // JPG Download (high quality raster)
+    document.getElementById('downloadPDF')?.addEventListener('click', downloadJPG);
+
+    // SVG Download (Illustrator editable)
+    document.getElementById('downloadSVG')?.addEventListener('click', downloadSVG);
 }
 
 // ========== Photo Mode Controls ==========
@@ -534,6 +933,7 @@ function initPhotoControls() {
     document.getElementById('removeImage')?.addEventListener('click', () => {
         state.uploadedImage = null;
         state.originalImageData = null;
+        state.uploadedImageSvgData = null;
         document.getElementById('uploadedImage')?.classList.add('hidden');
         document.getElementById('uploadZone')?.classList.remove('hidden');
         document.getElementById('removeBackground')?.classList.add('hidden');
@@ -716,7 +1116,11 @@ function initLogoControls() {
     const logoUpload = document.getElementById('logoUpload');
 
     if (logoUploadZone && logoUpload) {
-        logoUploadZone.addEventListener('click', () => logoUpload.click());
+        logoUploadZone.addEventListener('click', () => {
+            // Reset input value to allow re-uploading the same file
+            logoUpload.value = '';
+            logoUpload.click();
+        });
         logoUploadZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             logoUploadZone.classList.add('dragover');
@@ -738,6 +1142,9 @@ function initLogoControls() {
     document.getElementById('removeLogo')?.addEventListener('click', () => {
         state.logoImage = null;
         state.logoSvgData = null;
+        // Reset file input to allow re-uploading the same file
+        const logoInput = document.getElementById('logoUpload');
+        if (logoInput) logoInput.value = '';
         document.getElementById('uploadedLogo')?.classList.add('hidden');
         document.getElementById('logoUploadZone')?.classList.remove('hidden');
         updateCanvas();
@@ -1109,6 +1516,7 @@ function resetDesignState() {
     state.designType = null;
     state.uploadedImage = null;
     state.originalImageData = null;
+    state.uploadedImageSvgData = null;
     state.backgroundImage = null;
     state.backgroundType = 'solid';
     // Reset SVG template for new product
@@ -1579,6 +1987,12 @@ function updateCanvasSize() {
         aspectRatio = vb.width / vb.height;
     }
 
+    // Fallback: For feather flags, use known SVG viewBox aspect ratio (1944x13500)
+    // This ensures WYSIWYG even if template isn't loaded via TemplateEngine
+    if (state.currentProduct?.id === 'feather-flag' || state.currentProduct?.name?.toLowerCase().includes('feather')) {
+        aspectRatio = 1944 / 13500;  // SVG viewBox aspect ratio
+    }
+
     // For very narrow products (like feather flags), ensure minimum width for quality
     const isVeryNarrow = aspectRatio < 0.2;
 
@@ -1683,6 +2097,19 @@ function handleImageUpload(e) {
     if (file.size > 10 * 1024 * 1024) {
         alert('File too large! Please use an image under 10MB.');
         return;
+    }
+
+    const isSvg = file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg');
+
+    // For SVG files, also read as text to preserve vector data
+    if (isSvg) {
+        const textReader = new FileReader();
+        textReader.onload = function(textEvent) {
+            state.uploadedImageSvgData = textEvent.target.result;
+        };
+        textReader.readAsText(file);
+    } else {
+        state.uploadedImageSvgData = null;
     }
 
     const reader = new FileReader();
@@ -2385,9 +2812,14 @@ async function drawProductWithSVGCanvas() {
         }
     }
 
-    // Legacy fallback for feather flag
+    // Legacy fallback for feather flag - use loadFeatherFlagOverlay to get SVG
     if (isFeatherFlagProduct()) {
-        drawFeatherFlagFallback();
+        const overlay = await loadFeatherFlagOverlay();
+        if (overlay) {
+            drawProductWithSVGOverlay(overlay);
+        } else {
+            drawFeatherFlagFallback();
+        }
     }
 }
 
@@ -2478,12 +2910,178 @@ function drawProductWithSVGOverlay(overlay) {
         ctx.drawImage(state.uploadedImage, imgX, imgY, imgW, imgH);
     }
 
+    // Draw photo mode text layers (if in photo mode)
+    if (state.designType === 'photo' && state.photoTextLayers) {
+        state.photoTextLayers.forEach((layer, index) => {
+            if (!layer.enabled || !layer.text.trim()) return;
+
+            ctx.font = `bold ${layer.size}px ${layer.font}`;
+            ctx.fillStyle = layer.color;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const textX = drawX + drawWidth * layer.x;
+            const textY = drawY + drawHeight * layer.y;
+
+            ctx.fillText(layer.text, textX, textY);
+        });
+    }
+
     // Draw logo if in logo mode
     if (state.designType === 'logo' && state.logoImage) {
-        const logoSize = Math.min(drawWidth, drawHeight) * 0.6;
-        const logoX = drawX + (drawWidth - logoSize) / 2;
-        const logoY = drawY + (drawHeight - logoSize) / 2;
-        ctx.drawImage(state.logoImage, logoX, logoY, logoSize, logoSize);
+        const logoWidth = state.logoSize || 150;
+        const logoHeight = (state.logoImage.height / state.logoImage.width) * logoWidth;
+        const spacing = state.patternSpacing || 20;
+        const offsetX = state.patternOffsetX || 0;
+        const offsetY = state.patternOffsetY || 0;
+        const rotation = (state.patternRotation || 0) * Math.PI / 180;
+
+        if (state.patternStyle === 'single') {
+            // Single logo centered with optional text
+            const singleWidth = state.singleLogoSize || Math.min(drawWidth, drawHeight) * 0.4;
+            const aspectRatio = state.logoImage.height / state.logoImage.width;
+            const singleHeight = singleWidth * aspectRatio;
+
+            // Calculate text offset
+            let textOffset = 0;
+            if (state.showSingleText) textOffset += 50;
+            if (state.showSingleTagline) textOffset += 30;
+
+            const logoX = drawX + drawWidth * (state.singleLogoX || 0.5) - singleWidth / 2;
+            const logoY = drawY + drawHeight * (state.singleLogoY || 0.5) - singleHeight / 2 - textOffset / 2;
+
+            ctx.drawImage(state.logoImage, logoX, logoY, singleWidth, singleHeight);
+
+            // Draw text below logo if enabled
+            let textY = logoY + singleHeight + 45;
+
+            if (state.showSingleText && state.singleText) {
+                ctx.font = `bold 36px ${state.singleTextFont || 'Arial'}`;
+                ctx.fillStyle = state.singleTextColor || '#333333';
+                ctx.textAlign = 'center';
+                ctx.fillText(state.singleText, drawX + drawWidth * (state.singleLogoX || 0.5), textY);
+                textY += 35;
+            }
+
+            if (state.showSingleTagline && state.singleTagline) {
+                ctx.font = `18px ${state.singleTaglineFont || 'Arial'}`;
+                ctx.fillStyle = state.singleTaglineColor || '#666666';
+                ctx.textAlign = 'center';
+                ctx.fillText(state.singleTagline, drawX + drawWidth * (state.singleLogoX || 0.5), textY);
+            }
+
+        } else if (state.patternStyle === 'highlight') {
+            // Highlight mode - background pattern with large center logo
+            ctx.save();
+            ctx.translate(drawX + drawWidth / 2 + offsetX, drawY + drawHeight / 2 + offsetY);
+            ctx.rotate(rotation);
+            ctx.translate(-drawWidth / 2, -drawHeight / 2);
+
+            const smallLogoWidth = logoWidth * 0.6;
+            const smallLogoHeight = (state.logoImage.height / state.logoImage.width) * smallLogoWidth;
+
+            // Draw background pattern
+            let rowIndex = 0;
+            for (let y = -smallLogoHeight * 2; y < drawHeight + smallLogoHeight * 2; y += smallLogoHeight + spacing) {
+                const rowOffset = rowIndex % 2 === 0 ? 0 : (smallLogoWidth + spacing) / 2;
+                for (let x = -smallLogoWidth * 2 + rowOffset; x < drawWidth + smallLogoWidth * 2; x += smallLogoWidth + spacing) {
+                    ctx.globalAlpha = 0.3;
+                    ctx.drawImage(state.logoImage, x, y, smallLogoWidth, smallLogoHeight);
+                }
+                rowIndex++;
+            }
+            ctx.restore();
+            ctx.globalAlpha = 1;
+
+            // Draw highlight logo
+            const highlightWidth = state.highlightSize || Math.min(drawWidth, drawHeight) * 0.5;
+            const highlightHeight = (state.logoImage.height / state.logoImage.width) * highlightWidth;
+
+            let textOffset = 0;
+            if (state.showHighlightText) textOffset += 50;
+            if (state.showHighlightTagline) textOffset += 30;
+
+            const logoCenterX = drawX + drawWidth * (state.highlightLogoX || 0.5);
+            const logoCenterY = drawY + drawHeight * (state.highlightLogoY || 0.5);
+            const centerX = logoCenterX - highlightWidth / 2;
+            const centerY = logoCenterY - highlightHeight / 2 - textOffset / 2;
+
+            // Draw background behind highlight logo if enabled
+            if (state.showHighlightBg) {
+                const paddingPercent = ((state.highlightBgSize || 120) - 100) / 100;
+                const padding = Math.min(highlightWidth, highlightHeight) * paddingPercent;
+                const bgWidth = highlightWidth + padding * 2;
+                const bgHeight = highlightHeight + padding * 2;
+                const bgX = centerX - padding;
+                const bgY = centerY - padding;
+
+                ctx.fillStyle = state.highlightBgColor || '#ffffff';
+
+                if (state.highlightBgShape === 'circle') {
+                    const radius = Math.max(bgWidth, bgHeight) / 2;
+                    ctx.beginPath();
+                    ctx.arc(centerX + highlightWidth / 2, centerY + highlightHeight / 2, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (state.highlightBgShape === 'rounded') {
+                    ctx.beginPath();
+                    ctx.roundRect(bgX, bgY, bgWidth, bgHeight, padding * 0.5);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
+                }
+            }
+
+            ctx.drawImage(state.logoImage, centerX, centerY, highlightWidth, highlightHeight);
+
+            // Draw text below highlight logo
+            let textY = centerY + highlightHeight + 45;
+            if (state.showHighlightText && state.highlightText) {
+                ctx.font = `bold 36px ${state.highlightTextFont || 'Arial'}`;
+                ctx.fillStyle = state.highlightTextColor || '#333333';
+                ctx.textAlign = 'center';
+                ctx.fillText(state.highlightText, logoCenterX, textY);
+                textY += 35;
+            }
+            if (state.showHighlightTagline && state.highlightTagline) {
+                ctx.font = `18px ${state.highlightTaglineFont || 'Arial'}`;
+                ctx.fillStyle = state.highlightTaglineColor || '#666666';
+                ctx.textAlign = 'center';
+                ctx.fillText(state.highlightTagline, logoCenterX, textY);
+            }
+
+        } else {
+            // Grid, Diagonal, Offset patterns
+            ctx.save();
+            ctx.translate(drawX + drawWidth / 2 + offsetX, drawY + drawHeight / 2 + offsetY);
+            ctx.rotate(rotation);
+            ctx.translate(-drawWidth / 2, -drawHeight / 2);
+
+            if (state.patternStyle === 'grid') {
+                for (let y = -logoHeight * 2; y < drawHeight + logoHeight * 2; y += logoHeight + spacing) {
+                    for (let x = -logoWidth * 2; x < drawWidth + logoWidth * 2; x += logoWidth + spacing) {
+                        ctx.drawImage(state.logoImage, x, y, logoWidth, logoHeight);
+                    }
+                }
+            } else if (state.patternStyle === 'diagonal') {
+                ctx.rotate(-Math.PI / 6); // Additional -30 degree rotation
+                for (let y = -logoHeight * 3; y < drawHeight * 3; y += logoHeight + spacing) {
+                    for (let x = -logoWidth * 3; x < drawWidth * 3; x += logoWidth + spacing) {
+                        ctx.drawImage(state.logoImage, x, y, logoWidth, logoHeight);
+                    }
+                }
+            } else if (state.patternStyle === 'offset') {
+                let rowIndex = 0;
+                for (let y = -logoHeight * 2; y < drawHeight + logoHeight * 2; y += logoHeight + spacing) {
+                    const rowOffset = rowIndex % 2 === 0 ? 0 : (logoWidth + spacing) / 2;
+                    for (let x = -logoWidth * 2 + rowOffset; x < drawWidth + logoWidth * 2; x += logoWidth + spacing) {
+                        ctx.drawImage(state.logoImage, x, y, logoWidth, logoHeight);
+                    }
+                    rowIndex++;
+                }
+            }
+
+            ctx.restore();
+        }
     }
 
     // STEP 2: Draw SVG overlay on top - transparent hole shows artwork beneath
@@ -2668,6 +3266,10 @@ function updateCanvas() {
     if (hasProductSVGTemplate()) {
         drawProductWithSVGCanvas();
     }
+    // Legacy feather flag support - use direct SVG overlay loader
+    else if (isFeatherFlagProduct()) {
+        drawProductWithSVGCanvas();
+    }
     // Check if this is a table cloth product that needs mockup preview
     else if (isTableClothProduct() && (state.designType === 'photo' || state.designType === 'logo')) {
         drawTableMockup();
@@ -2680,11 +3282,17 @@ function updateCanvas() {
 
 // ========== Draw Photo Mode ==========
 function drawPhotoMode() {
+    // WYSIWYG: Use display dimensions because setTransform already handles scaling
+    // See js/wysiwyg.js for documentation on the coordinate system
+    const dims = WYSIWYG.getViewerDimensions(canvas);
+    const w = dims.width;
+    const h = dims.height;
+
     // Draw background
     if (state.backgroundType === 'solid') {
         const color = document.getElementById('bgColor')?.value || '#ffffff';
         ctx.fillStyle = color;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, w, h);
     } else if (state.backgroundType === 'gradient') {
         const color1 = document.getElementById('gradColor1')?.value || '#667eea';
         const color2 = document.getElementById('gradColor2')?.value || '#764ba2';
@@ -2692,65 +3300,65 @@ function drawPhotoMode() {
 
         switch (state.gradDirection) {
             case 'horizontal':
-                gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+                gradient = ctx.createLinearGradient(0, 0, w, 0);
                 break;
             case 'vertical':
-                gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                gradient = ctx.createLinearGradient(0, 0, 0, h);
                 break;
             case 'diagonal':
-                gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                gradient = ctx.createLinearGradient(0, 0, w, h);
                 break;
             case 'radial':
                 gradient = ctx.createRadialGradient(
-                    canvas.width / 2, canvas.height / 2, 0,
-                    canvas.width / 2, canvas.height / 2, Math.max(canvas.width, canvas.height) / 2
+                    w / 2, h / 2, 0,
+                    w / 2, h / 2, Math.max(w, h) / 2
                 );
                 break;
             default:
-                gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+                gradient = ctx.createLinearGradient(0, 0, w, 0);
         }
         gradient.addColorStop(0, color1);
         gradient.addColorStop(1, color2);
         ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, w, h);
     } else if (state.backgroundType === 'ai' && state.backgroundImage) {
-        drawAIBackground(ctx, state.backgroundImage, canvas.width, canvas.height, state.aiBgScale, state.aiBgX, state.aiBgY);
+        drawAIBackground(ctx, state.backgroundImage, w, h, state.aiBgScale, state.aiBgX, state.aiBgY);
     }
 
     // Draw uploaded image with position and scale controls
     if (state.uploadedImage) {
-        let x, y, width, height;
+        let x, y, imgW, imgH;
         const imgRatio = state.uploadedImage.width / state.uploadedImage.height;
-        const canvasRatio = canvas.width / canvas.height;
+        const canvasRatio = w / h;
 
         if (state.photoFitMode === 'cover') {
             // Cover - fill canvas, may crop
             if (imgRatio > canvasRatio) {
-                height = canvas.height * (state.photoImageScale / 100);
-                width = height * imgRatio;
+                imgH = h * (state.photoImageScale / 100);
+                imgW = imgH * imgRatio;
             } else {
-                width = canvas.width * (state.photoImageScale / 100);
-                height = width / imgRatio;
+                imgW = w * (state.photoImageScale / 100);
+                imgH = imgW / imgRatio;
             }
-            x = (canvas.width - width) * state.photoImageX;
-            y = (canvas.height - height) * state.photoImageY;
+            x = (w - imgW) * state.photoImageX;
+            y = (h - imgH) * state.photoImageY;
         } else if (state.photoFitMode === 'contain') {
             // Contain - fit inside, may have letterbox
             if (imgRatio > canvasRatio) {
-                width = canvas.width * 0.9 * (state.photoImageScale / 100);
-                height = width / imgRatio;
+                imgW = w * 0.9 * (state.photoImageScale / 100);
+                imgH = imgW / imgRatio;
             } else {
-                height = canvas.height * 0.9 * (state.photoImageScale / 100);
-                width = height * imgRatio;
+                imgH = h * 0.9 * (state.photoImageScale / 100);
+                imgW = imgH * imgRatio;
             }
-            x = (canvas.width - width) / 2 + (state.photoImageX - 0.5) * canvas.width * 0.5;
-            y = (canvas.height - height) / 2 + (state.photoImageY - 0.5) * canvas.height * 0.5;
+            x = (w - imgW) / 2 + (state.photoImageX - 0.5) * w * 0.5;
+            y = (h - imgH) / 2 + (state.photoImageY - 0.5) * h * 0.5;
         } else {
             // Free position mode
-            width = state.uploadedImage.width * (state.photoImageScale / 100) * 0.5;
-            height = state.uploadedImage.height * (state.photoImageScale / 100) * 0.5;
-            x = canvas.width * state.photoImageX - width / 2;
-            y = canvas.height * state.photoImageY - height / 2;
+            imgW = state.uploadedImage.width * (state.photoImageScale / 100) * 0.5;
+            imgH = state.uploadedImage.height * (state.photoImageScale / 100) * 0.5;
+            x = w * state.photoImageX - imgW / 2;
+            y = h * state.photoImageY - imgH / 2;
         }
 
         // Drop shadow
@@ -2758,7 +3366,7 @@ function drawPhotoMode() {
         ctx.shadowBlur = 20;
         ctx.shadowOffsetY = 10;
 
-        ctx.drawImage(state.uploadedImage, x, y, width, height);
+        ctx.drawImage(state.uploadedImage, x, y, imgW, imgH);
 
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
@@ -2774,26 +3382,23 @@ function drawPhotoMode() {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        // Text shadow
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 8;
-        ctx.shadowOffsetX = 2;
-        ctx.shadowOffsetY = 2;
-
-        const textX = canvas.width * layer.x;
-        const textY = canvas.height * layer.y;
+        const textX = w * layer.x;
+        const textY = h * layer.y;
 
         ctx.fillText(layer.text, textX, textY);
-
-        ctx.shadowColor = 'transparent';
-        ctx.shadowBlur = 0;
     });
 }
 
 // ========== Draw Logo Mode ==========
 function drawLogoMode() {
+    // WYSIWYG: Use display dimensions because setTransform already handles scaling
+    // See js/wysiwyg.js for documentation on the coordinate system
+    const dims = WYSIWYG.getViewerDimensions(canvas);
+    const w = dims.width;
+    const h = dims.height;
+
     ctx.fillStyle = state.patternBgColor;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, w, h);
 
     if (!state.logoImage) return;
 
@@ -2814,8 +3419,8 @@ function drawLogoMode() {
         if (state.showSingleText) textOffset += 50;
         if (state.showSingleTagline) textOffset += 30;
 
-        const x = canvas.width * state.singleLogoX - singleWidth / 2;
-        const y = canvas.height * state.singleLogoY - singleHeight / 2 - textOffset / 2;
+        const x = w * state.singleLogoX - singleWidth / 2;
+        const y = h * state.singleLogoY - singleHeight / 2 - textOffset / 2;
 
         ctx.drawImage(state.logoImage, x, y, singleWidth, singleHeight);
 
@@ -2826,7 +3431,7 @@ function drawLogoMode() {
             ctx.font = `bold 36px ${state.singleTextFont}`;
             ctx.fillStyle = state.singleTextColor;
             ctx.textAlign = 'center';
-            ctx.fillText(state.singleText, canvas.width * state.singleLogoX, textY);
+            ctx.fillText(state.singleText, w * state.singleLogoX, textY);
             textY += 35;
         }
 
@@ -2835,7 +3440,7 @@ function drawLogoMode() {
             ctx.font = `18px ${state.singleTaglineFont}`;
             ctx.fillStyle = state.singleTaglineColor;
             ctx.textAlign = 'center';
-            ctx.fillText(state.singleTagline, canvas.width * state.singleLogoX, textY);
+            ctx.fillText(state.singleTagline, w * state.singleLogoX, textY);
         }
         return;
     }
@@ -2844,17 +3449,25 @@ function drawLogoMode() {
     if (state.patternStyle === 'highlight') {
         // Draw background pattern (smaller logos)
         ctx.save();
-        ctx.translate(canvas.width / 2 + offsetX, canvas.height / 2 + offsetY);
+        ctx.translate(w / 2 + offsetX, h / 2 + offsetY);
         ctx.rotate(rotation);
-        ctx.translate(-canvas.width / 2, -canvas.height / 2);
+        ctx.translate(-w / 2, -h / 2);
 
         const smallLogoWidth = logoWidth * 0.6;
         const smallLogoHeight = (state.logoImage.height / state.logoImage.width) * smallLogoWidth;
 
+        // SAVE normalized dimensions for SVG export
+        viewerDimensions.highlight.patternLogoWidthNorm = smallLogoWidth / w;
+        viewerDimensions.highlight.patternLogoHeightNorm = smallLogoHeight / h;
+        viewerDimensions.highlight.patternSpacingNorm = spacing / w;
+        viewerDimensions.highlight.rotation = rotation;
+        viewerDimensions.highlight.offsetXNorm = offsetX / w;
+        viewerDimensions.highlight.offsetYNorm = offsetY / h;
+
         let rowIndex = 0;
-        for (let y = -smallLogoHeight * 2; y < canvas.height + smallLogoHeight * 2; y += smallLogoHeight + spacing) {
+        for (let y = -smallLogoHeight * 2; y < h + smallLogoHeight * 2; y += smallLogoHeight + spacing) {
             const rowOffset = rowIndex % 2 === 0 ? 0 : (smallLogoWidth + spacing) / 2;
-            for (let x = -smallLogoWidth * 2 + rowOffset; x < canvas.width + smallLogoWidth * 2; x += smallLogoWidth + spacing) {
+            for (let x = -smallLogoWidth * 2 + rowOffset; x < w + smallLogoWidth * 2; x += smallLogoWidth + spacing) {
                 ctx.globalAlpha = 0.3;
                 ctx.drawImage(state.logoImage, x, y, smallLogoWidth, smallLogoHeight);
             }
@@ -2872,9 +3485,14 @@ function drawLogoMode() {
         const highlightWidth = state.highlightSize;
         const highlightHeight = (state.logoImage.height / state.logoImage.width) * highlightWidth;
 
+        // SAVE highlight dimensions for SVG export
+        viewerDimensions.highlight.highlightWidthNorm = highlightWidth / w;
+        viewerDimensions.highlight.highlightHeightNorm = highlightHeight / h;
+        viewerDimensions.highlight.textOffsetNorm = textOffset / h;
+
         // Use highlightLogoX/Y for positioning (default 0.5 = center)
-        const logoCenterX = canvas.width * state.highlightLogoX;
-        const logoCenterY = canvas.height * state.highlightLogoY;
+        const logoCenterX = w * state.highlightLogoX;
+        const logoCenterY = h * state.highlightLogoY;
         const centerX = logoCenterX - highlightWidth / 2;
         const centerY = logoCenterY - highlightHeight / 2 - textOffset / 2;
 
@@ -2934,28 +3552,28 @@ function drawLogoMode() {
 
     // Grid, Diagonal, Offset patterns with rotation and offset support
     ctx.save();
-    ctx.translate(canvas.width / 2 + offsetX, canvas.height / 2 + offsetY);
+    ctx.translate(w / 2 + offsetX, h / 2 + offsetY);
     ctx.rotate(rotation);
-    ctx.translate(-canvas.width / 2, -canvas.height / 2);
+    ctx.translate(-w / 2, -h / 2);
 
     if (state.patternStyle === 'grid') {
-        for (let y = -logoHeight * 2; y < canvas.height + logoHeight * 2; y += logoHeight + spacing) {
-            for (let x = -logoWidth * 2; x < canvas.width + logoWidth * 2; x += logoWidth + spacing) {
+        for (let y = -logoHeight * 2; y < h + logoHeight * 2; y += logoHeight + spacing) {
+            for (let x = -logoWidth * 2; x < w + logoWidth * 2; x += logoWidth + spacing) {
                 ctx.drawImage(state.logoImage, x, y, logoWidth, logoHeight);
             }
         }
     } else if (state.patternStyle === 'diagonal') {
         ctx.rotate(-Math.PI / 6);
-        for (let y = -logoHeight * 3; y < canvas.height * 3; y += logoHeight + spacing) {
-            for (let x = -logoWidth * 3; x < canvas.width * 3; x += logoWidth + spacing) {
+        for (let y = -logoHeight * 3; y < h * 3; y += logoHeight + spacing) {
+            for (let x = -logoWidth * 3; x < w * 3; x += logoWidth + spacing) {
                 ctx.drawImage(state.logoImage, x, y, logoWidth, logoHeight);
             }
         }
     } else if (state.patternStyle === 'offset') {
         let rowIndex = 0;
-        for (let y = -logoHeight * 2; y < canvas.height + logoHeight * 2; y += logoHeight + spacing) {
+        for (let y = -logoHeight * 2; y < h + logoHeight * 2; y += logoHeight + spacing) {
             const rowOffset = rowIndex % 2 === 0 ? 0 : (logoWidth + spacing) / 2;
-            for (let x = -logoWidth * 2 + rowOffset; x < canvas.width + logoWidth * 2; x += logoWidth + spacing) {
+            for (let x = -logoWidth * 2 + rowOffset; x < w + logoWidth * 2; x += logoWidth + spacing) {
                 ctx.drawImage(state.logoImage, x, y, logoWidth, logoHeight);
             }
             rowIndex++;
@@ -3091,10 +3709,7 @@ function drawDesignToContext(targetCtx, w, h) {
         targetCtx.fillStyle = layer.color;
         targetCtx.textAlign = 'center';
         targetCtx.textBaseline = 'middle';
-        targetCtx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        targetCtx.shadowBlur = 8;
         targetCtx.fillText(layer.text, w * layer.x, h * layer.y);
-        targetCtx.shadowColor = 'transparent';
     });
 }
 
@@ -4088,6 +4703,326 @@ function handleAddToCart() {
     }, 1500);
 }
 
+// ========== Download High-Quality JPG ==========
+async function downloadJPG() {
+    if (!canvas || !state.currentProduct || !state.selectedSize) {
+        alert('Please complete your design first.');
+        return;
+    }
+
+    showLoading(true);
+
+    try {
+        // Get print dimensions
+        let widthInches, heightInches;
+
+        if (state.selectedSize.dimensions) {
+            const dimensions = state.selectedSize.dimensions;
+            if (dimensions.unit === 'inches' || dimensions.unit === 'in') {
+                widthInches = dimensions.width;
+                heightInches = dimensions.height;
+            } else if (dimensions.unit === 'ft' || dimensions.unit === 'feet') {
+                widthInches = dimensions.width * 12;
+                heightInches = dimensions.height * 12;
+            } else {
+                widthInches = dimensions.width;
+                heightInches = dimensions.height;
+            }
+        } else {
+            const width = state.selectedSize.width;
+            const height = state.selectedSize.height;
+            if (width <= 20 && height <= 20) {
+                widthInches = width * 12;
+                heightInches = height * 12;
+            } else {
+                widthInches = width;
+                heightInches = height;
+            }
+        }
+
+        // Calculate pixel dimensions at 150 DPI (good balance of quality and file size)
+        const dpi = 150;
+        const pixelWidth = Math.round(widthInches * dpi);
+        const pixelHeight = Math.round(heightInches * dpi);
+
+        console.log(`JPG Export: ${widthInches}" x ${heightInches}" @ ${dpi} DPI = ${pixelWidth} x ${pixelHeight} px`);
+
+        // Create high-res canvas
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = pixelWidth;
+        exportCanvas.height = pixelHeight;
+        const exportCtx = exportCanvas.getContext('2d');
+
+        // Fill white background (JPG doesn't support transparency)
+        exportCtx.fillStyle = '#ffffff';
+        exportCtx.fillRect(0, 0, pixelWidth, pixelHeight);
+
+        // Draw the design at high resolution
+        if (state.designType === 'photo') {
+            await drawPhotoDesignHighRes(exportCtx, pixelWidth, pixelHeight);
+        } else if (state.designType === 'logo') {
+            await drawLogoDesignHighRes(exportCtx, pixelWidth, pixelHeight);
+        }
+
+        // Convert to JPG and download
+        const dataUrl = exportCanvas.toDataURL('image/jpeg', 0.95); // 95% quality
+
+        const productName = state.currentProduct.name.replace(/\s+/g, '_');
+        const sizeName = state.selectedSize.label.replace(/[^a-zA-Z0-9]/g, '_');
+        const filename = `${productName}_${sizeName}_${dpi}DPI.jpg`;
+
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = dataUrl;
+        link.click();
+
+        showSuccess(`JPG Downloaded! ${widthInches}" x ${heightInches}" @ ${dpi} DPI`);
+
+    } catch (error) {
+        console.error('JPG generation error:', error);
+        alert('Error generating JPG: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Helper: Draw photo design at high resolution
+async function drawPhotoDesignHighRes(ctx, width, height) {
+    // Draw background
+    if (state.backgroundType === 'solid') {
+        ctx.fillStyle = document.getElementById('bgColor')?.value || '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+    } else if (state.backgroundType === 'gradient') {
+        const color1 = document.getElementById('gradColor1')?.value || '#667eea';
+        const color2 = document.getElementById('gradColor2')?.value || '#764ba2';
+        let gradient;
+
+        if (state.gradDirection === 'horizontal') {
+            gradient = ctx.createLinearGradient(0, 0, width, 0);
+        } else if (state.gradDirection === 'vertical') {
+            gradient = ctx.createLinearGradient(0, 0, 0, height);
+        } else if (state.gradDirection === 'diagonal') {
+            gradient = ctx.createLinearGradient(0, 0, width, height);
+        } else if (state.gradDirection === 'radial') {
+            gradient = ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, Math.max(width, height) * 0.7);
+        }
+
+        if (gradient) {
+            gradient.addColorStop(0, color1);
+            gradient.addColorStop(1, color2);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+        }
+    } else if (state.backgroundType === 'ai' && state.backgroundImage) {
+        ctx.drawImage(state.backgroundImage, 0, 0, width, height);
+    }
+
+    // Draw uploaded image
+    if (state.uploadedImage) {
+        const imgRatio = state.uploadedImage.width / state.uploadedImage.height;
+        const canvasRatio = width / height;
+        let x, y, imgWidth, imgHeight;
+
+        if (state.photoFitMode === 'cover') {
+            if (imgRatio > canvasRatio) {
+                imgHeight = height * (state.photoImageScale / 100);
+                imgWidth = imgHeight * imgRatio;
+            } else {
+                imgWidth = width * (state.photoImageScale / 100);
+                imgHeight = imgWidth / imgRatio;
+            }
+            x = (width - imgWidth) * state.photoImageX;
+            y = (height - imgHeight) * state.photoImageY;
+        } else {
+            imgWidth = width * 0.9 * (state.photoImageScale / 100);
+            imgHeight = imgWidth / imgRatio;
+            x = (width - imgWidth) / 2;
+            y = (height - imgHeight) / 2;
+        }
+
+        ctx.drawImage(state.uploadedImage, x, y, imgWidth, imgHeight);
+    }
+
+    // Draw text layers
+    if (state.photoTextLayers) {
+        for (const layer of state.photoTextLayers) {
+            if (!layer.enabled || !layer.text.trim()) continue;
+
+            // Scale font size proportionally
+            const fontSize = layer.size * (height / 600);
+            ctx.font = `bold ${fontSize}px ${layer.font}`;
+            ctx.fillStyle = layer.color;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const textX = width * layer.x;
+            const textY = height * layer.y;
+
+            ctx.fillText(layer.text, textX, textY);
+        }
+    }
+}
+
+// Helper: Draw logo design at high resolution
+async function drawLogoDesignHighRes(ctx, width, height) {
+    // Draw background
+    ctx.fillStyle = state.patternBgColor || '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+
+    if (!state.logoImage) return;
+
+    const scale = height / 600; // Scale factor based on canvas height
+    const logoWidth = state.logoSize * scale;
+    const logoHeight = (state.logoImage.height / state.logoImage.width) * logoWidth;
+    const spacing = state.patternSpacing * scale;
+
+    if (state.patternStyle === 'single') {
+        const singleWidth = state.singleLogoSize * scale;
+        const singleHeight = (state.logoImage.height / state.logoImage.width) * singleWidth;
+
+        let textOffset = 0;
+        if (state.showSingleText) textOffset += 50 * scale;
+        if (state.showSingleTagline) textOffset += 30 * scale;
+
+        const x = width * state.singleLogoX - singleWidth / 2;
+        const y = height * state.singleLogoY - singleHeight / 2 - textOffset / 2;
+
+        ctx.drawImage(state.logoImage, x, y, singleWidth, singleHeight);
+
+        // Draw text
+        let textY = y + singleHeight + 15 * scale;
+
+        if (state.showSingleText && state.singleText) {
+            ctx.font = `bold ${36 * scale}px ${state.singleTextFont || 'Arial'}`;
+            ctx.fillStyle = state.singleTextColor || '#333333';
+            ctx.textAlign = 'center';
+            ctx.fillText(state.singleText, width * state.singleLogoX, textY);
+            textY += 45 * scale;
+        }
+
+        if (state.showSingleTagline && state.singleTagline) {
+            ctx.font = `${18 * scale}px ${state.singleTaglineFont || 'Arial'}`;
+            ctx.fillStyle = state.singleTaglineColor || '#666666';
+            ctx.textAlign = 'center';
+            ctx.fillText(state.singleTagline, width * state.singleLogoX, textY);
+        }
+
+    } else if (state.patternStyle === 'grid') {
+        for (let py = 0; py < height + logoHeight; py += logoHeight + spacing) {
+            for (let px = 0; px < width + logoWidth; px += logoWidth + spacing) {
+                ctx.drawImage(state.logoImage, px, py, logoWidth, logoHeight);
+            }
+        }
+
+    } else if (state.patternStyle === 'diagonal') {
+        ctx.save();
+        ctx.translate(width / 2, height / 2);
+        ctx.rotate(-30 * Math.PI / 180);
+        ctx.translate(-width / 2, -height / 2);
+
+        for (let py = -height; py < height * 2; py += logoHeight + spacing) {
+            for (let px = -width; px < width * 2; px += logoWidth + spacing) {
+                ctx.drawImage(state.logoImage, px, py, logoWidth, logoHeight);
+            }
+        }
+        ctx.restore();
+
+    } else if (state.patternStyle === 'offset') {
+        let rowIndex = 0;
+        for (let py = 0; py < height + logoHeight; py += logoHeight + spacing) {
+            const rowOffset = rowIndex % 2 === 0 ? 0 : (logoWidth + spacing) / 2;
+            for (let px = -logoWidth + rowOffset; px < width + logoWidth; px += logoWidth + spacing) {
+                ctx.drawImage(state.logoImage, px, py, logoWidth, logoHeight);
+            }
+            rowIndex++;
+        }
+
+    } else if (state.patternStyle === 'highlight') {
+        // Draw background pattern (smaller logos with offset pattern and transparency)
+        const smallLogoWidth = logoWidth * 0.6;
+        const smallLogoHeight = (state.logoImage.height / state.logoImage.width) * smallLogoWidth;
+
+        ctx.save();
+        ctx.globalAlpha = 0.3; // 30% opacity for background pattern
+
+        let rowIndex = 0;
+        for (let py = -smallLogoHeight * 2; py < height + smallLogoHeight * 2; py += smallLogoHeight + spacing) {
+            const rowOffset = rowIndex % 2 === 0 ? 0 : (smallLogoWidth + spacing) / 2;
+            for (let px = -smallLogoWidth * 2 + rowOffset; px < width + smallLogoWidth * 2; px += smallLogoWidth + spacing) {
+                ctx.drawImage(state.logoImage, px, py, smallLogoWidth, smallLogoHeight);
+            }
+            rowIndex++;
+        }
+        ctx.restore();
+        ctx.globalAlpha = 1;
+
+        // Calculate text offset based on what's visible
+        let textOffset = 0;
+        if (state.showHighlightText) textOffset += 50 * scale;
+        if (state.showHighlightTagline) textOffset += 30 * scale;
+
+        // Draw highlight logo using position state
+        const highlightWidth = state.highlightSize * scale;
+        const highlightHeight = (state.logoImage.height / state.logoImage.width) * highlightWidth;
+
+        // Use highlightLogoX/Y for positioning (default 0.5 = center)
+        const logoCenterX = width * state.highlightLogoX;
+        const logoCenterY = height * state.highlightLogoY;
+        const centerX = logoCenterX - highlightWidth / 2;
+        const centerY = logoCenterY - highlightHeight / 2 - textOffset / 2;
+
+        // Draw background behind highlight logo if enabled
+        if (state.showHighlightBg) {
+            const paddingPercent = (state.highlightBgSize - 100) / 100;
+            const padding = Math.min(highlightWidth, highlightHeight) * paddingPercent;
+
+            const bgWidth = highlightWidth + padding * 2;
+            const bgHeight = highlightHeight + padding * 2;
+            const bgX = centerX - padding;
+            const bgY = centerY - padding;
+
+            ctx.fillStyle = state.highlightBgColor;
+
+            if (state.highlightBgShape === 'circle') {
+                const radius = Math.max(bgWidth, bgHeight) / 2;
+                const circleCenterX = centerX + highlightWidth / 2;
+                const circleCenterY = centerY + highlightHeight / 2;
+                ctx.beginPath();
+                ctx.arc(circleCenterX, circleCenterY, radius, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (state.highlightBgShape === 'rounded') {
+                const radius = padding * 0.5;
+                ctx.beginPath();
+                ctx.roundRect(bgX, bgY, bgWidth, bgHeight, radius);
+                ctx.fill();
+            } else {
+                ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
+            }
+        }
+
+        ctx.drawImage(state.logoImage, centerX, centerY, highlightWidth, highlightHeight);
+
+        // Draw text below if enabled
+        let textY = centerY + highlightHeight + 45 * scale;
+
+        if (state.showHighlightText) {
+            ctx.font = `bold ${36 * scale}px ${state.highlightTextFont}`;
+            ctx.fillStyle = state.highlightTextColor;
+            ctx.textAlign = 'center';
+            ctx.fillText(state.highlightText, logoCenterX, textY);
+            textY += 35 * scale;
+        }
+
+        // Draw tagline if enabled
+        if (state.showHighlightTagline) {
+            ctx.font = `${18 * scale}px ${state.highlightTaglineFont}`;
+            ctx.fillStyle = state.highlightTaglineColor;
+            ctx.textAlign = 'center';
+            ctx.fillText(state.highlightTagline, logoCenterX, textY);
+        }
+    }
+}
+
 // ========== Universal Download PDF ==========
 // Uses Railway API with Ghostscript to create PDF with proper OCG layers
 // Preserves original PDF template structure and embeds artwork into ARTWORK HERE layer
@@ -4196,6 +5131,12 @@ async function downloadPDF() {
         await renderArtworkToCanvas(printCtx, printWidth, printHeight, scaleX, scaleY);
 
         // Get image data for PDF embedding
+        // Use JPEG for PDF (no alpha channel) - PNG SMask causes issues in Illustrator
+        const jpegDataUrl = printCanvas.toDataURL('image/jpeg', 1.0);
+        const jpegData = jpegDataUrl.split(',')[1];
+        const jpegImageBytes = Uint8Array.from(atob(jpegData), c => c.charCodeAt(0));
+
+        // Also keep PNG for Railway API (it handles transparency properly)
         const pngDataUrl = printCanvas.toDataURL('image/png');
         const pngData = pngDataUrl.split(',')[1];
         const pngImageBytes = Uint8Array.from(atob(pngData), c => c.charCodeAt(0));
@@ -4266,8 +5207,8 @@ async function downloadPDF() {
         pdfDoc = await PDFDocument.create();
         page = pdfDoc.addPage([pageWidthPt, pageHeightPt]);
 
-        // Embed artwork as PNG
-        const artworkImage = await pdfDoc.embedPng(pngImageBytes);
+        // Embed artwork as JPEG (no alpha/SMask - better Illustrator compatibility)
+        const artworkImage = await pdfDoc.embedJpg(jpegImageBytes);
 
         // Draw artwork filling the entire page
         page.drawImage(artworkImage, {
@@ -4579,6 +5520,1229 @@ function downloadPDFFallback() {
     } catch (error) {
         console.error('Fallback PDF error:', error);
         alert('Error generating PDF. Please try again.');
+    }
+}
+
+// ========== Vector PDF Generation ==========
+/**
+ * Generate a vector PDF with the same logic as SVG export
+ * Uses jsPDF for vector graphics where possible
+ */
+async function downloadVectorPDF() {
+    if (!canvas || !state.currentProduct || !state.selectedSize) {
+        alert('Please complete your design first.');
+        return;
+    }
+
+    showLoading(true);
+
+    try {
+        const { jsPDF } = window.jspdf;
+
+        // Get dimensions from template or config
+        let widthInches, heightInches;
+
+        if (state.selectedSize.dimensions) {
+            const dimensions = state.selectedSize.dimensions;
+            if (dimensions.unit === 'inches' || dimensions.unit === 'in') {
+                widthInches = dimensions.width;
+                heightInches = dimensions.height;
+            } else if (dimensions.unit === 'ft' || dimensions.unit === 'feet') {
+                widthInches = dimensions.width * 12;
+                heightInches = dimensions.height * 12;
+            } else {
+                widthInches = dimensions.width;
+                heightInches = dimensions.height;
+            }
+        } else {
+            const width = state.selectedSize.width;
+            const height = state.selectedSize.height;
+            if (width <= 20 && height <= 20) {
+                widthInches = width * 12;
+                heightInches = height * 12;
+            } else {
+                widthInches = width;
+                heightInches = height;
+            }
+        }
+
+        // Convert to mm for jsPDF (1 inch = 25.4 mm)
+        const mmPerInch = 25.4;
+        const pdfWidthMm = widthInches * mmPerInch;
+        const pdfHeightMm = heightInches * mmPerInch;
+
+        console.log(`Vector PDF: ${widthInches}" x ${heightInches}" = ${pdfWidthMm}mm x ${pdfHeightMm}mm`);
+
+        // Create PDF
+        const pdf = new jsPDF({
+            orientation: pdfWidthMm > pdfHeightMm ? 'landscape' : 'portrait',
+            unit: 'mm',
+            format: [pdfWidthMm, pdfHeightMm]
+        });
+
+        // Draw vector elements
+        await drawVectorPDFContent(pdf, pdfWidthMm, pdfHeightMm);
+
+        // Generate filename
+        const productName = state.currentProduct.name.replace(/\s+/g, '_');
+        const sizeName = state.selectedSize.label.replace(/[^a-zA-Z0-9]/g, '_');
+        const filename = `${productName}_${sizeName}_VECTOR.pdf`;
+
+        pdf.save(filename);
+        showSuccess(`Vector PDF Downloaded! ${widthInches}" x ${heightInches}"`);
+
+    } catch (error) {
+        console.error('Vector PDF generation error:', error);
+        alert('Error generating vector PDF: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
+/**
+ * Draw vector content to jsPDF
+ */
+async function drawVectorPDFContent(pdf, width, height) {
+    // 1. BACKGROUND
+    if (state.backgroundType === 'solid') {
+        const color = document.getElementById('bgColor')?.value || '#ffffff';
+        const rgb = hexToRgb(color);
+        pdf.setFillColor(rgb.r, rgb.g, rgb.b);
+        pdf.rect(0, 0, width, height, 'F');
+
+    } else if (state.backgroundType === 'gradient') {
+        // jsPDF doesn't support gradients natively, so we simulate with strips
+        const color1 = document.getElementById('gradColor1')?.value || '#667eea';
+        const color2 = document.getElementById('gradColor2')?.value || '#764ba2';
+        const rgb1 = hexToRgb(color1);
+        const rgb2 = hexToRgb(color2);
+
+        const strips = 200; // Number of gradient strips for smooth transition
+
+        if (state.gradDirection === 'horizontal') {
+            const stripWidth = width / strips;
+            for (let i = 0; i < strips; i++) {
+                const t = i / (strips - 1);
+                const r = Math.round(rgb1.r + (rgb2.r - rgb1.r) * t);
+                const g = Math.round(rgb1.g + (rgb2.g - rgb1.g) * t);
+                const b = Math.round(rgb1.b + (rgb2.b - rgb1.b) * t);
+                pdf.setFillColor(r, g, b);
+                pdf.rect(i * stripWidth, 0, stripWidth + 0.5, height, 'F');
+            }
+        } else if (state.gradDirection === 'vertical') {
+            const stripHeight = height / strips;
+            for (let i = 0; i < strips; i++) {
+                const t = i / (strips - 1);
+                const r = Math.round(rgb1.r + (rgb2.r - rgb1.r) * t);
+                const g = Math.round(rgb1.g + (rgb2.g - rgb1.g) * t);
+                const b = Math.round(rgb1.b + (rgb2.b - rgb1.b) * t);
+                pdf.setFillColor(r, g, b);
+                pdf.rect(0, i * stripHeight, width, stripHeight + 0.5, 'F');
+            }
+        } else if (state.gradDirection === 'diagonal') {
+            // For diagonal, use vertical approximation
+            const stripHeight = height / strips;
+            for (let i = 0; i < strips; i++) {
+                const t = i / (strips - 1);
+                const r = Math.round(rgb1.r + (rgb2.r - rgb1.r) * t);
+                const g = Math.round(rgb1.g + (rgb2.g - rgb1.g) * t);
+                const b = Math.round(rgb1.b + (rgb2.b - rgb1.b) * t);
+                pdf.setFillColor(r, g, b);
+                pdf.rect(0, i * stripHeight, width, stripHeight + 0.5, 'F');
+            }
+        } else if (state.gradDirection === 'radial') {
+            // Radial is complex, use solid average as fallback
+            const r = Math.round((rgb1.r + rgb2.r) / 2);
+            const g = Math.round((rgb1.g + rgb2.g) / 2);
+            const b = Math.round((rgb1.b + rgb2.b) / 2);
+            pdf.setFillColor(r, g, b);
+            pdf.rect(0, 0, width, height, 'F');
+        }
+
+    } else if (state.backgroundType === 'ai' && state.backgroundImage) {
+        // AI background - embed as image
+        const dataUrl = imageToDataUrl(state.backgroundImage);
+        const imgProps = getImagePositionForPDF(state.backgroundImage, width, height);
+        pdf.addImage(dataUrl, 'PNG', imgProps.x, imgProps.y, imgProps.width, imgProps.height);
+
+    } else {
+        // Default white/pattern background
+        const bgColor = state.patternBgColor || '#ffffff';
+        const rgb = hexToRgb(bgColor);
+        pdf.setFillColor(rgb.r, rgb.g, rgb.b);
+        pdf.rect(0, 0, width, height, 'F');
+    }
+
+    // 2. DESIGN CONTENT
+    if (state.designType === 'photo') {
+        await drawPhotoModePDF(pdf, width, height);
+    } else if (state.designType === 'logo' && state.logoImage) {
+        await drawLogoModePDF(pdf, width, height);
+    }
+}
+
+/**
+ * Draw photo mode content to PDF
+ */
+async function drawPhotoModePDF(pdf, width, height) {
+    // Draw uploaded image
+    if (state.uploadedImage) {
+        const imgRatio = state.uploadedImage.width / state.uploadedImage.height;
+        const canvasRatio = width / height;
+        let x, y, imgWidth, imgHeight;
+
+        if (state.photoFitMode === 'cover') {
+            if (imgRatio > canvasRatio) {
+                imgHeight = height * (state.photoImageScale / 100);
+                imgWidth = imgHeight * imgRatio;
+            } else {
+                imgWidth = width * (state.photoImageScale / 100);
+                imgHeight = imgWidth / imgRatio;
+            }
+            x = (width - imgWidth) * state.photoImageX;
+            y = (height - imgHeight) * state.photoImageY;
+        } else {
+            imgWidth = width * 0.9 * (state.photoImageScale / 100);
+            imgHeight = imgWidth / imgRatio;
+            x = (width - imgWidth) / 2;
+            y = (height - imgHeight) / 2;
+        }
+
+        // If SVG data exists, try to draw vectors; otherwise embed raster
+        if (state.uploadedImageSvgData) {
+            await drawSVGPathsToPDF(pdf, state.uploadedImageSvgData, x, y, imgWidth, imgHeight);
+        } else if (state.originalImageData) {
+            pdf.addImage(state.originalImageData, 'PNG', x, y, imgWidth, imgHeight);
+        }
+    }
+
+    // Draw text layers as vector text
+    if (state.photoTextLayers) {
+        for (const layer of state.photoTextLayers) {
+            if (!layer.enabled || !layer.text.trim()) continue;
+
+            const textX = width * layer.x;
+            const textY = height * layer.y;
+
+            // Convert px to pt (1px ≈ 0.75pt for screen, but we scale for print)
+            // For PDF in mm, we need to calculate font size appropriately
+            const fontSizePt = layer.size * (width / 600); // Scale based on width
+
+            const rgb = hexToRgb(layer.color);
+            pdf.setTextColor(rgb.r, rgb.g, rgb.b);
+            pdf.setFontSize(fontSizePt);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(layer.text, textX, textY, { align: 'center', baseline: 'middle' });
+        }
+    }
+}
+
+/**
+ * Draw logo mode content to PDF
+ */
+async function drawLogoModePDF(pdf, width, height) {
+    if (!state.logoImage) return;
+
+    if (state.patternStyle === 'single') {
+        // Single logo
+        const logoWidthMm = state.singleLogoSize * (width / 600);
+        const aspectRatio = state.logoImage.height / state.logoImage.width;
+        const logoHeightMm = logoWidthMm * aspectRatio;
+
+        let textOffset = 0;
+        if (state.showSingleText) textOffset += 15;
+        if (state.showSingleTagline) textOffset += 10;
+
+        const x = width * state.singleLogoX - logoWidthMm / 2;
+        const y = height * state.singleLogoY - logoHeightMm / 2 - textOffset / 2;
+
+        // Draw logo
+        if (state.logoSvgData) {
+            await drawSVGPathsToPDF(pdf, state.logoSvgData, x, y, logoWidthMm, logoHeightMm);
+        } else {
+            const dataUrl = imageToDataUrl(state.logoImage);
+            pdf.addImage(dataUrl, 'PNG', x, y, logoWidthMm, logoHeightMm);
+        }
+
+        // Draw text
+        let textY = y + logoHeightMm + 12;
+
+        if (state.showSingleText && state.singleText) {
+            const rgb = hexToRgb(state.singleTextColor || '#333333');
+            pdf.setTextColor(rgb.r, rgb.g, rgb.b);
+            pdf.setFontSize(36 * (width / 600));
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(state.singleText, width * state.singleLogoX, textY, { align: 'center' });
+            textY += 10;
+        }
+
+        if (state.showSingleTagline && state.singleTagline) {
+            const rgb = hexToRgb(state.singleTaglineColor || '#666666');
+            pdf.setTextColor(rgb.r, rgb.g, rgb.b);
+            pdf.setFontSize(18 * (width / 600));
+            pdf.setFont('helvetica', 'normal');
+            pdf.text(state.singleTagline, width * state.singleLogoX, textY, { align: 'center' });
+        }
+
+    } else {
+        // Pattern modes (grid, diagonal, offset, highlight)
+        const logoWidthMm = state.logoSize * (width / 600);
+        const aspectRatio = state.logoImage.height / state.logoImage.width;
+        const logoHeightMm = logoWidthMm * aspectRatio;
+        const spacingMm = state.patternSpacing * (width / 600);
+
+        // Get logo as PNG data URL for pattern (jsPDF can't handle SVG directly)
+        // Render at reasonable resolution to avoid memory issues
+        const logoPixelWidth = Math.min(400, Math.max(100, Math.round(logoWidthMm * 2)));
+        const logoPixelHeight = Math.min(400, Math.max(100, Math.round(logoHeightMm * 2)));
+
+        let logoDataUrl;
+        if (state.logoSvgData) {
+            // Render SVG to PNG for PDF compatibility
+            try {
+                logoDataUrl = await renderSVGToPNGDataUrl(state.logoSvgData, logoPixelWidth, logoPixelHeight);
+            } catch (e) {
+                console.warn('SVG render failed, using raster:', e);
+                logoDataUrl = imageToDataUrl(state.logoImage);
+            }
+        } else {
+            logoDataUrl = imageToDataUrl(state.logoImage);
+        }
+
+        if (state.patternStyle === 'diagonal') {
+            // Diagonal pattern
+            pdf.saveGraphicsState();
+            // Rotate around center
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            for (let py = -logoHeightMm * 3; py < height * 2; py += logoHeightMm + spacingMm) {
+                for (let px = -logoWidthMm * 3; px < width * 2; px += logoWidthMm + spacingMm) {
+                    // Apply rotation transform
+                    const angle = -30 * Math.PI / 180;
+                    const cos = Math.cos(angle);
+                    const sin = Math.sin(angle);
+                    const rx = cos * (px - centerX) - sin * (py - centerY) + centerX;
+                    const ry = sin * (px - centerX) + cos * (py - centerY) + centerY;
+
+                    if (rx > -logoWidthMm && rx < width + logoWidthMm &&
+                        ry > -logoHeightMm && ry < height + logoHeightMm) {
+                        try {
+                            pdf.addImage(logoDataUrl, 'PNG', rx, ry, logoWidthMm, logoHeightMm);
+                        } catch (e) {
+                            // Skip if image fails
+                        }
+                    }
+                }
+            }
+            pdf.restoreGraphicsState();
+
+        } else if (state.patternStyle === 'offset') {
+            // Offset/brick pattern
+            let rowIndex = 0;
+            for (let py = -logoHeightMm; py < height + logoHeightMm; py += logoHeightMm + spacingMm) {
+                const rowOffset = rowIndex % 2 === 0 ? 0 : (logoWidthMm + spacingMm) / 2;
+                for (let px = -logoWidthMm + rowOffset; px < width + logoWidthMm; px += logoWidthMm + spacingMm) {
+                    try {
+                        pdf.addImage(logoDataUrl, 'PNG', px, py, logoWidthMm, logoHeightMm);
+                    } catch (e) {
+                        // Skip if image fails
+                    }
+                }
+                rowIndex++;
+            }
+
+        } else if (state.patternStyle === 'highlight') {
+            // Highlight mode - large center logo with smaller pattern behind
+            // Draw small pattern first
+            const smallLogoWidth = logoWidthMm * 0.5;
+            const smallLogoHeight = logoHeightMm * 0.5;
+            const smallSpacing = spacingMm * 0.5;
+
+            for (let py = 0; py < height; py += smallLogoHeight + smallSpacing) {
+                for (let px = 0; px < width; px += smallLogoWidth + smallSpacing) {
+                    try {
+                        pdf.addImage(logoDataUrl, 'PNG', px, py, smallLogoWidth, smallLogoHeight);
+                    } catch (e) {
+                        // Skip
+                    }
+                }
+            }
+
+            // Draw large center logo
+            const highlightWidth = Math.min(width, height) * 0.6;
+            const highlightHeight = highlightWidth * aspectRatio;
+            const hx = (width - highlightWidth) / 2;
+            const hy = (height - highlightHeight) / 2;
+
+            try {
+                pdf.addImage(logoDataUrl, 'PNG', hx, hy, highlightWidth, highlightHeight);
+            } catch (e) {
+                // Skip
+            }
+
+        } else {
+            // Grid pattern (default)
+            for (let py = 0; py < height; py += logoHeightMm + spacingMm) {
+                for (let px = 0; px < width; px += logoWidthMm + spacingMm) {
+                    try {
+                        pdf.addImage(logoDataUrl, 'PNG', px, py, logoWidthMm, logoHeightMm);
+                    } catch (e) {
+                        // Skip if image fails
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Draw SVG to PDF by rendering to high-resolution PNG
+ * jsPDF doesn't support native SVG vectors, so we render at high DPI for quality
+ */
+async function drawSVGPathsToPDF(pdf, svgData, x, y, width, height) {
+    try {
+        // Convert mm to pixels at 72 DPI (standard PDF resolution)
+        // 1 inch = 25.4 mm, so 72 DPI = 72/25.4 ≈ 2.83 pixels per mm
+        const pixelsPerMm = 2.83; // ~72 DPI - standard for PDF
+        const pixelWidth = Math.max(100, Math.min(800, Math.round(width * pixelsPerMm)));
+        const pixelHeight = Math.max(100, Math.min(800, Math.round(height * pixelsPerMm)));
+
+        const pngDataUrl = await renderSVGToPNGDataUrl(svgData, pixelWidth, pixelHeight);
+        pdf.addImage(pngDataUrl, 'PNG', x, y, width, height);
+    } catch (error) {
+        console.warn('SVG to PDF conversion failed:', error);
+        // Final fallback: use original Image approach
+        const img = new Image();
+        img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+        await new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.min(800, Math.max(100, Math.round(width * 2.83)));
+        canvas.height = Math.min(800, Math.max(100, Math.round(height * 2.83)));
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const dataUrl = canvas.toDataURL('image/png');
+        pdf.addImage(dataUrl, 'PNG', x, y, width, height);
+    }
+}
+
+/**
+ * Simple SVG path parser - extracts move and line commands
+ */
+function parseSVGPath(d) {
+    const commands = [];
+    const regex = /([MLHVCSQTAZ])([^MLHVCSQTAZ]*)/gi;
+    let match;
+    let currentX = 0, currentY = 0;
+
+    while ((match = regex.exec(d)) !== null) {
+        const type = match[1].toUpperCase();
+        const args = match[2].trim().split(/[\s,]+/).map(Number).filter(n => !isNaN(n));
+        const isRelative = match[1] === match[1].toLowerCase();
+
+        if (type === 'M' && args.length >= 2) {
+            currentX = isRelative ? currentX + args[0] : args[0];
+            currentY = isRelative ? currentY + args[1] : args[1];
+            commands.push({ type: 'M', x: currentX, y: currentY });
+        } else if (type === 'L' && args.length >= 2) {
+            currentX = isRelative ? currentX + args[0] : args[0];
+            currentY = isRelative ? currentY + args[1] : args[1];
+            commands.push({ type: 'L', x: currentX, y: currentY });
+        } else if (type === 'H' && args.length >= 1) {
+            currentX = isRelative ? currentX + args[0] : args[0];
+            commands.push({ type: 'L', x: currentX, y: currentY });
+        } else if (type === 'V' && args.length >= 1) {
+            currentY = isRelative ? currentY + args[0] : args[0];
+            commands.push({ type: 'L', x: currentX, y: currentY });
+        } else if (type === 'Z') {
+            commands.push({ type: 'Z', x: currentX, y: currentY });
+        }
+    }
+
+    return commands;
+}
+
+/**
+ * Convert hex color to RGB object
+ */
+function hexToRgb(hex) {
+    if (!hex) return { r: 0, g: 0, b: 0 };
+    hex = hex.replace('#', '');
+    if (hex.length === 3) {
+        hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    }
+    const result = /^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : { r: 0, g: 0, b: 0 };
+}
+
+/**
+ * Render SVG data to PNG data URL for PDF embedding
+ * jsPDF cannot handle SVG directly, so we render to canvas first
+ */
+async function renderSVGToPNGDataUrl(svgData, width, height) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = function() {
+            const tempCanvas = document.createElement('canvas');
+            // Limit canvas size to avoid memory issues
+            tempCanvas.width = Math.min(1000, width);
+            tempCanvas.height = Math.min(1000, height);
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
+            resolve(tempCanvas.toDataURL('image/png'));
+        };
+        img.onerror = function() {
+            reject(new Error('Failed to load SVG'));
+        };
+        img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+    });
+}
+
+/**
+ * Get image position for PDF based on aspect ratio
+ */
+function getImagePositionForPDF(img, pdfWidth, pdfHeight) {
+    const imgRatio = img.width / img.height;
+    const pdfRatio = pdfWidth / pdfHeight;
+
+    let width, height, x, y;
+
+    if (imgRatio > pdfRatio) {
+        width = pdfWidth;
+        height = pdfWidth / imgRatio;
+        x = 0;
+        y = (pdfHeight - height) / 2;
+    } else {
+        height = pdfHeight;
+        width = pdfHeight * imgRatio;
+        x = (pdfWidth - width) / 2;
+        y = 0;
+    }
+
+    return { x, y, width, height };
+}
+
+// ========== Vector SVG Generation Functions ==========
+// These functions generate true SVG vector elements instead of rasterized PNG
+
+/**
+ * Main function to generate vector artwork for SVG export
+ * @param {Document} svgDoc - SVG document
+ * @param {number} width - SVG width (from viewBox)
+ * @param {number} height - SVG height (from viewBox)
+ * @param {Object} transform - Coordinate transformer
+ * @returns {Promise<Element[]>} - Array of SVG elements
+ */
+async function generateVectorArtwork(svgDoc, width, height, transform) {
+    const elements = [];
+
+    // 1. BACKGROUND
+    const bgElements = await generateBackgroundElements(svgDoc, width, height);
+    elements.push(...bgElements);
+
+    // 2. DESIGN CONTENT based on mode
+    if (state.designType === 'photo') {
+        const photoElements = await generatePhotoModeElements(svgDoc, width, height, transform);
+        elements.push(...photoElements);
+    } else if (state.designType === 'logo' && state.logoImage) {
+        const logoElements = await generateLogoModeElements(svgDoc, width, height, transform);
+        elements.push(...logoElements);
+    }
+
+    return elements;
+}
+
+/**
+ * Generate background elements (solid color, gradient, or image)
+ */
+async function generateBackgroundElements(svgDoc, width, height) {
+    const elements = [];
+
+    if (state.backgroundType === 'solid') {
+        const color = document.getElementById('bgColor')?.value || '#ffffff';
+        const rect = svgDoc.createElementNS(SVG_NS, 'rect');
+        rect.setAttribute('x', '0');
+        rect.setAttribute('y', '0');
+        rect.setAttribute('width', width.toString());
+        rect.setAttribute('height', height.toString());
+        rect.setAttribute('fill', color);
+        elements.push(rect);
+
+    } else if (state.backgroundType === 'gradient') {
+        const color1 = document.getElementById('gradColor1')?.value || '#667eea';
+        const color2 = document.getElementById('gradColor2')?.value || '#764ba2';
+
+        // Create gradient definition
+        const defs = createSVGGradient(svgDoc, 'bg-gradient', color1, color2, state.gradDirection);
+        elements.push(defs);
+
+        // Create rect using gradient
+        const rect = svgDoc.createElementNS(SVG_NS, 'rect');
+        rect.setAttribute('x', '0');
+        rect.setAttribute('y', '0');
+        rect.setAttribute('width', width.toString());
+        rect.setAttribute('height', height.toString());
+        rect.setAttribute('fill', 'url(#bg-gradient)');
+        elements.push(rect);
+
+    } else if (state.backgroundType === 'ai' && state.backgroundImage) {
+        // AI background stays as raster image
+        const dataUrl = imageToDataUrl(state.backgroundImage);
+
+        // Calculate position based on AI background settings
+        const imgRatio = state.backgroundImage.width / state.backgroundImage.height;
+        const canvasRatio = width / height;
+
+        let baseWidth, baseHeight;
+        if (imgRatio > canvasRatio) {
+            baseWidth = width;
+            baseHeight = width / imgRatio;
+        } else {
+            baseHeight = height;
+            baseWidth = height * imgRatio;
+        }
+
+        const scaleFactor = (state.aiBgScale || 100) / 100;
+        const drawWidth = baseWidth * scaleFactor;
+        const drawHeight = baseHeight * scaleFactor;
+
+        const maxOffsetX = width - drawWidth;
+        const maxOffsetY = height - drawHeight;
+        const offsetX = maxOffsetX * ((state.aiBgX || 50) / 100);
+        const offsetY = maxOffsetY * ((state.aiBgY || 50) / 100);
+
+        elements.push(createSVGImage(svgDoc, dataUrl, offsetX, offsetY, drawWidth, drawHeight, 'none'));
+
+    } else {
+        // Default white/pattern background
+        const bgColor = state.patternBgColor || '#ffffff';
+        const rect = svgDoc.createElementNS(SVG_NS, 'rect');
+        rect.setAttribute('x', '0');
+        rect.setAttribute('y', '0');
+        rect.setAttribute('width', width.toString());
+        rect.setAttribute('height', height.toString());
+        rect.setAttribute('fill', bgColor);
+        elements.push(rect);
+    }
+
+    return elements;
+}
+
+/**
+ * Generate photo mode elements (uploaded image + text layers)
+ */
+async function generatePhotoModeElements(svgDoc, width, height, transform) {
+    const elements = [];
+
+    // 1. Uploaded image (raster)
+    if (state.uploadedImage && state.originalImageData) {
+        const imgRatio = state.uploadedImage.width / state.uploadedImage.height;
+        const canvasRatio = width / height;
+        let x, y, imgWidth, imgHeight;
+
+        if (state.photoFitMode === 'cover') {
+            if (imgRatio > canvasRatio) {
+                imgHeight = height * (state.photoImageScale / 100);
+                imgWidth = imgHeight * imgRatio;
+            } else {
+                imgWidth = width * (state.photoImageScale / 100);
+                imgHeight = imgWidth / imgRatio;
+            }
+            x = (width - imgWidth) * state.photoImageX;
+            y = (height - imgHeight) * state.photoImageY;
+        } else if (state.photoFitMode === 'contain') {
+            if (imgRatio > canvasRatio) {
+                imgWidth = width * 0.9 * (state.photoImageScale / 100);
+                imgHeight = imgWidth / imgRatio;
+            } else {
+                imgHeight = height * 0.9 * (state.photoImageScale / 100);
+                imgWidth = imgHeight * imgRatio;
+            }
+            x = (width - imgWidth) / 2 + (state.photoImageX - 0.5) * width * 0.5;
+            y = (height - imgHeight) / 2 + (state.photoImageY - 0.5) * height * 0.5;
+        } else {
+            // Free position mode
+            imgWidth = state.uploadedImage.width * (state.photoImageScale / 100) * 0.5 * transform.scaleX;
+            imgHeight = state.uploadedImage.height * (state.photoImageScale / 100) * 0.5 * transform.scaleY;
+            x = width * state.photoImageX - imgWidth / 2;
+            y = height * state.photoImageY - imgHeight / 2;
+        }
+
+        // If SVG data exists, embed as vector; otherwise use raster
+        if (state.uploadedImageSvgData) {
+            const svgGroup = embedSVGLogo(svgDoc, state.uploadedImageSvgData, x, y, imgWidth, imgHeight);
+            if (svgGroup) {
+                elements.push(svgGroup);
+            } else {
+                // Fallback to raster if SVG embedding fails
+                elements.push(createSVGImage(svgDoc, state.originalImageData, x, y, imgWidth, imgHeight, 'none'));
+            }
+        } else {
+            elements.push(createSVGImage(svgDoc, state.originalImageData, x, y, imgWidth, imgHeight, 'none'));
+        }
+    }
+
+    // 2. Text layers (converted to vector paths!)
+    for (const layer of state.photoTextLayers) {
+        if (!layer.enabled || !layer.text.trim()) continue;
+
+        const textX = transform.x(layer.x);
+        const textY = transform.y(layer.y);
+        const fontSize = transform.size(layer.size);
+
+        try {
+            const textPath = await createTextPath(
+                svgDoc,
+                layer.text,
+                textX,
+                textY,
+                fontSize,
+                layer.font,
+                layer.color,
+                'center'
+            );
+            elements.push(textPath);
+        } catch (error) {
+            console.warn('Failed to create text path for layer:', layer.text, error);
+        }
+    }
+
+    return elements;
+}
+
+/**
+ * Generate logo mode elements (single logo or patterns)
+ */
+async function generateLogoModeElements(svgDoc, width, height, transform) {
+    const elements = [];
+
+    if (state.patternStyle === 'single') {
+        elements.push(...await generateSingleLogoElements(svgDoc, width, height, transform));
+    } else if (state.patternStyle === 'highlight') {
+        elements.push(...await generateHighlightModeElements(svgDoc, width, height, transform));
+    } else {
+        // Grid, diagonal, offset patterns
+        elements.push(...await generatePatternElements(svgDoc, width, height, transform));
+    }
+
+    return elements;
+}
+
+/**
+ * Generate single logo with optional text/tagline
+ */
+async function generateSingleLogoElements(svgDoc, width, height, transform) {
+    const elements = [];
+
+    // Normalize to display width for WYSIWYG consistency
+    const logoWidthNorm = state.singleLogoSize / canvas.displayWidth;
+    const logoWidth = logoWidthNorm * width;
+    const logoHeight = (state.logoImage.height / state.logoImage.width) * logoWidth;
+
+    // Calculate text offset if text is enabled (normalized)
+    let textOffset = 0;
+    if (state.showSingleText) textOffset += (50 / canvas.displayWidth) * width;
+    if (state.showSingleTagline) textOffset += (30 / canvas.displayWidth) * width;
+
+    const x = width * state.singleLogoX - logoWidth / 2;
+    const y = height * state.singleLogoY - logoHeight / 2 - textOffset / 2;
+
+    // Add logo (vector or raster)
+    if (state.logoSvgData) {
+        const logoGroup = embedSVGLogo(svgDoc, state.logoSvgData, x, y, logoWidth, logoHeight);
+        if (logoGroup) elements.push(logoGroup);
+    } else {
+        const dataUrl = imageToDataUrl(state.logoImage);
+        elements.push(createSVGImage(svgDoc, dataUrl, x, y, logoWidth, logoHeight, 'xMidYMid meet'));
+    }
+
+    // Add text (normalized to display width)
+    const textGap = (45 / canvas.displayWidth) * width;
+    const textSize = (36 / canvas.displayWidth) * width;
+    const taglineGap = (35 / canvas.displayWidth) * width;
+    const taglineSize = (18 / canvas.displayWidth) * width;
+
+    let textY = y + logoHeight + textGap;
+    if (state.showSingleText && state.singleText) {
+        try {
+            const textPath = await createTextPath(
+                svgDoc,
+                state.singleText,
+                width * state.singleLogoX,
+                textY,
+                textSize,
+                state.singleTextFont,
+                state.singleTextColor,
+                'center'
+            );
+            elements.push(textPath);
+            textY += taglineGap;
+        } catch (error) {
+            console.warn('Failed to create single text path:', error);
+        }
+    }
+
+    // Add tagline
+    if (state.showSingleTagline && state.singleTagline) {
+        try {
+            const taglinePath = await createTextPath(
+                svgDoc,
+                state.singleTagline,
+                width * state.singleLogoX,
+                textY,
+                taglineSize,
+                state.singleTaglineFont,
+                state.singleTaglineColor,
+                'center'
+            );
+            elements.push(taglinePath);
+        } catch (error) {
+            console.warn('Failed to create tagline path:', error);
+        }
+    }
+
+    return elements;
+}
+
+/**
+ * Generate highlight mode (pattern background + centered large logo)
+ * WYSIWYG: Uses normalized coordinates (% of width) to match viewer exactly
+ */
+async function generateHighlightModeElements(svgDoc, width, height, transform) {
+    const elements = [];
+
+    // NORMALIZED COORDINATES - all dimensions as percentage of DISPLAY WIDTH
+    // Use canvas.displayWidth (not canvas.width) because viewer draws in display coordinates
+    // canvas.width includes scaleFactor (4x for feather flags) but drawing uses display coords
+    const logoWidthNorm = (state.logoSize * 0.6) / canvas.displayWidth;  // % of display width
+    const spacingNorm = state.patternSpacing / canvas.displayWidth;       // % of display width
+    const offsetXNorm = (state.patternOffsetX || 0) / canvas.displayWidth;
+    const offsetYNorm = (state.patternOffsetY || 0) / canvas.displayWidth; // use width for uniform scale
+    const rotation = (state.patternRotation || 0) * Math.PI / 180;
+
+    // Apply to SVG dimensions
+    const logoWidth = logoWidthNorm * width;
+    const logoHeight = (state.logoImage.height / state.logoImage.width) * logoWidth;
+    const spacing = spacingNorm * width;
+    const offsetX = offsetXNorm * width;
+    const offsetY = offsetYNorm * width;
+
+    // Create pattern group with rotation and 30% opacity
+    const patternGroup = svgDoc.createElementNS(SVG_NS, 'g');
+    patternGroup.setAttribute('id', 'pattern-background');
+    patternGroup.setAttribute('opacity', '0.3');
+
+    if (rotation !== 0 || offsetX !== 0 || offsetY !== 0) {
+        patternGroup.setAttribute('transform',
+            `translate(${width/2 + offsetX}, ${height/2 + offsetY}) rotate(${rotation * 180 / Math.PI}) translate(${-width/2}, ${-height/2})`
+        );
+    }
+
+    // Safety checks
+    const stepY = logoHeight + spacing;
+    const stepX = logoWidth + spacing;
+
+    if (stepX >= 1 && stepY >= 1 && isFinite(stepX) && isFinite(stepY)) {
+        let rowIndex = 0;
+        let logoCount = 0;
+        const maxLogos = 10000;
+
+        for (let py = -logoHeight * 2; py < height + logoHeight * 2 && logoCount < maxLogos; py += stepY) {
+            const rowOffset = rowIndex % 2 === 0 ? 0 : stepX / 2;
+            for (let px = -logoWidth * 2 + rowOffset; px < width + logoWidth * 2 && logoCount < maxLogos; px += stepX) {
+                if (state.logoSvgData) {
+                    const logoGroup = embedSVGLogo(svgDoc, state.logoSvgData, px, py, logoWidth, logoHeight);
+                    if (logoGroup) patternGroup.appendChild(logoGroup);
+                } else {
+                    const dataUrl = imageToDataUrl(state.logoImage);
+                    const img = svgDoc.createElementNS(SVG_NS, 'image');
+                    img.setAttributeNS(XLINK_NS, 'xlink:href', dataUrl);
+                    img.setAttribute('x', px.toString());
+                    img.setAttribute('y', py.toString());
+                    img.setAttribute('width', logoWidth.toString());
+                    img.setAttribute('height', logoHeight.toString());
+                    patternGroup.appendChild(img);
+                }
+                logoCount++;
+            }
+            rowIndex++;
+        }
+    }
+
+    elements.push(patternGroup);
+
+    // Highlight logo - normalized to display width
+    const highlightWidthNorm = state.highlightSize / canvas.displayWidth;
+    const highlightWidth = highlightWidthNorm * width;
+    const highlightHeight = (state.logoImage.height / state.logoImage.width) * highlightWidth;
+
+    // Text offset - normalized to display width for uniform scaling
+    let textOffsetNorm = 0;
+    if (state.showHighlightText) textOffsetNorm += 50 / canvas.displayWidth;
+    if (state.showHighlightTagline) textOffsetNorm += 30 / canvas.displayWidth;
+    const textOffset = textOffsetNorm * width;
+
+    // Position uses normalized state values (already 0-1)
+    const logoCenterX = width * (state.highlightLogoX || 0.5);
+    const logoCenterY = height * (state.highlightLogoY || 0.5);
+    const highlightX = logoCenterX - highlightWidth / 2;
+    const highlightY = logoCenterY - highlightHeight / 2 - textOffset / 2;
+
+    if (state.showHighlightBg) {
+        const paddingPercent = ((state.highlightBgSize || 120) - 100) / 100;
+        const padding = Math.min(highlightWidth, highlightHeight) * paddingPercent;
+        const bgWidth = highlightWidth + padding * 2;
+        const bgHeight = highlightHeight + padding * 2;
+        const bgX = highlightX - padding;
+        const bgY = highlightY - padding;
+        const bgColor = state.highlightBgColor || '#ffffff';
+        const bgShape = state.highlightBgShape || 'rectangle';
+
+        if (bgShape === 'circle') {
+            const radius = Math.max(bgWidth, bgHeight) / 2;
+            const circleCenterX = highlightX + highlightWidth / 2;
+            const circleCenterY = highlightY + highlightHeight / 2;
+            const circle = svgDoc.createElementNS(SVG_NS, 'circle');
+            circle.setAttribute('cx', circleCenterX.toString());
+            circle.setAttribute('cy', circleCenterY.toString());
+            circle.setAttribute('r', radius.toString());
+            circle.setAttribute('fill', bgColor);
+            elements.push(circle);
+        } else {
+            const rect = svgDoc.createElementNS(SVG_NS, 'rect');
+            rect.setAttribute('x', bgX.toString());
+            rect.setAttribute('y', bgY.toString());
+            rect.setAttribute('width', bgWidth.toString());
+            rect.setAttribute('height', bgHeight.toString());
+            rect.setAttribute('fill', bgColor);
+            if (bgShape === 'rounded') {
+                const cornerRadius = padding * 0.5;
+                rect.setAttribute('rx', cornerRadius.toString());
+            }
+            elements.push(rect);
+        }
+    }
+
+    if (state.logoSvgData) {
+        const logoGroup = embedSVGLogo(svgDoc, state.logoSvgData, highlightX, highlightY, highlightWidth, highlightHeight);
+        if (logoGroup) elements.push(logoGroup);
+    } else {
+        const dataUrl = imageToDataUrl(state.logoImage);
+        elements.push(createSVGImage(svgDoc, dataUrl, highlightX, highlightY, highlightWidth, highlightHeight, 'xMidYMid meet'));
+    }
+
+    // Text sizes - normalized to display width for uniform scaling
+    const textSizeNorm = 36 / canvas.displayWidth;
+    const taglineSizeNorm = 18 / canvas.displayWidth;
+    const textGapNorm = 45 / canvas.displayWidth;
+    const taglineGapNorm = 35 / canvas.displayWidth;
+
+    // Add text/tagline below the logo
+    let textY = highlightY + highlightHeight + textGapNorm * width;
+    if (state.showHighlightText && state.highlightText) {
+        try {
+            const textPath = await createTextPath(
+                svgDoc,
+                state.highlightText,
+                logoCenterX,
+                textY,
+                textSizeNorm * width,
+                state.highlightTextFont,
+                state.highlightTextColor,
+                'center'
+            );
+            elements.push(textPath);
+            textY += taglineGapNorm * width;
+        } catch (error) {
+            console.warn('Failed to create highlight text path:', error);
+        }
+    }
+
+    if (state.showHighlightTagline && state.highlightTagline) {
+        try {
+            const taglinePath = await createTextPath(
+                svgDoc,
+                state.highlightTagline,
+                logoCenterX,
+                textY,
+                taglineSizeNorm * width,
+                state.highlightTaglineFont,
+                state.highlightTaglineColor,
+                'center'
+            );
+            elements.push(taglinePath);
+        } catch (error) {
+            console.warn('Failed to create highlight tagline path:', error);
+        }
+    }
+
+    return elements;
+}
+
+/**
+ * Generate pattern elements (grid, diagonal, offset)
+ * Uses normalized coordinates (% of display width) to match viewer exactly
+ */
+async function generatePatternElements(svgDoc, width, height, transform) {
+    const elements = [];
+
+    // Normalize to display width (same approach as highlight mode for consistency)
+    const logoWidthNorm = state.logoSize / canvas.displayWidth;
+    const logoWidth = logoWidthNorm * width;
+    const logoHeight = (state.logoImage.height / state.logoImage.width) * logoWidth;
+    const spacingNorm = state.patternSpacing / canvas.displayWidth;
+    const spacing = spacingNorm * width;
+    const rotation = (state.patternRotation || 0);
+    const offsetXNorm = (state.patternOffsetX || 0) / canvas.displayWidth;
+    const offsetX = offsetXNorm * width;
+    const offsetYNorm = (state.patternOffsetY || 0) / canvas.displayWidth;
+    const offsetY = offsetYNorm * width;
+
+    // Create defs with logo symbol for efficient reuse
+    const defs = svgDoc.createElementNS(SVG_NS, 'defs');
+    const symbol = svgDoc.createElementNS(SVG_NS, 'symbol');
+    symbol.setAttribute('id', 'logo-symbol');
+    symbol.setAttribute('overflow', 'visible');
+
+    if (state.logoSvgData) {
+        const parser = new DOMParser();
+        const logoDoc = parser.parseFromString(state.logoSvgData, 'image/svg+xml');
+        const vb = logoDoc.documentElement.getAttribute('viewBox');
+        if (vb) symbol.setAttribute('viewBox', vb);
+        Array.from(logoDoc.documentElement.children).forEach(child => {
+            symbol.appendChild(svgDoc.importNode(child, true));
+        });
+    } else {
+        const dataUrl = imageToDataUrl(state.logoImage);
+        const img = svgDoc.createElementNS(SVG_NS, 'image');
+        img.setAttributeNS(XLINK_NS, 'xlink:href', dataUrl);
+        img.setAttribute('width', '100');
+        img.setAttribute('height', '100');
+        symbol.appendChild(img);
+        symbol.setAttribute('viewBox', '0 0 100 100');
+    }
+
+    defs.appendChild(symbol);
+    elements.push(defs);
+
+    // Create pattern group with transforms
+    const patternGroup = svgDoc.createElementNS(SVG_NS, 'g');
+    patternGroup.setAttribute('id', 'logo-pattern');
+
+    // Build transform string - use center of SVG
+    const centerX = width / 2;
+    const centerY = height / 2;
+
+    // Only apply transform if there's rotation or offset
+    if (rotation !== 0 || offsetX !== 0 || offsetY !== 0) {
+        let transformStr = `translate(${centerX + offsetX}, ${centerY + offsetY}) `;
+        if (rotation !== 0) {
+            transformStr += `rotate(${rotation}) `;
+        }
+        transformStr += `translate(${-centerX}, ${-centerY})`;
+        patternGroup.setAttribute('transform', transformStr);
+    }
+
+    // Generate pattern based on style
+    if (state.patternStyle === 'diagonal') {
+        // Diagonal pattern - rotated -30 degrees
+        // Match viewer: ctx.rotate(-Math.PI/6) rotates around current transform origin (0,0)
+        // patternGroup already handles global offset/rotation, so we just rotate here
+        const diagGroup = svgDoc.createElementNS(SVG_NS, 'g');
+        diagGroup.setAttribute('transform', 'rotate(-30)');
+
+        for (let py = -logoHeight * 3; py < height * 3; py += logoHeight + spacing) {
+            for (let px = -logoWidth * 3; px < width * 3; px += logoWidth + spacing) {
+                const use = svgDoc.createElementNS(SVG_NS, 'use');
+                use.setAttributeNS(XLINK_NS, 'xlink:href', '#logo-symbol');
+                use.setAttribute('x', px.toString());
+                use.setAttribute('y', py.toString());
+                use.setAttribute('width', logoWidth.toString());
+                use.setAttribute('height', logoHeight.toString());
+                diagGroup.appendChild(use);
+            }
+        }
+        patternGroup.appendChild(diagGroup);
+
+    } else if (state.patternStyle === 'offset') {
+        // Offset/brick pattern
+        let rowIndex = 0;
+        for (let py = -logoHeight * 2; py < height + logoHeight * 2; py += logoHeight + spacing) {
+            const rowOffset = rowIndex % 2 === 0 ? 0 : (logoWidth + spacing) / 2;
+            for (let px = -logoWidth * 2 + rowOffset; px < width + logoWidth * 2; px += logoWidth + spacing) {
+                const use = svgDoc.createElementNS(SVG_NS, 'use');
+                use.setAttributeNS(XLINK_NS, 'xlink:href', '#logo-symbol');
+                use.setAttribute('x', px.toString());
+                use.setAttribute('y', py.toString());
+                use.setAttribute('width', logoWidth.toString());
+                use.setAttribute('height', logoHeight.toString());
+                patternGroup.appendChild(use);
+            }
+            rowIndex++;
+        }
+
+    } else {
+        // Grid pattern (default)
+        for (let py = -logoHeight * 2; py < height + logoHeight * 2; py += logoHeight + spacing) {
+            for (let px = -logoWidth * 2; px < width + logoWidth * 2; px += logoWidth + spacing) {
+                const use = svgDoc.createElementNS(SVG_NS, 'use');
+                use.setAttributeNS(XLINK_NS, 'xlink:href', '#logo-symbol');
+                use.setAttribute('x', px.toString());
+                use.setAttribute('y', py.toString());
+                use.setAttribute('width', logoWidth.toString());
+                use.setAttribute('height', logoHeight.toString());
+                patternGroup.appendChild(use);
+            }
+        }
+    }
+
+    elements.push(patternGroup);
+    return elements;
+}
+
+// ========== SVG Download with Layers ==========
+// Downloads SVG template with embedded artwork - preserves layer structure for Illustrator
+async function downloadSVG() {
+    if (!canvas || !state.currentProduct || !state.selectedSize) {
+        alert('Please complete your design first.');
+        return;
+    }
+
+    showLoading(true);
+
+    try {
+        // Get SVG template path from config
+        const svgTemplatePath = state.selectedSize?.svgTemplate ||
+                               state.currentProduct?.svgTemplate ||
+                               'FeatherAngled_XL_SingleSided_PrintThru_origin.svg';
+
+        console.log('Loading SVG template:', svgTemplatePath);
+
+        // Fetch the SVG template
+        const response = await fetch(`/templates/${svgTemplatePath}`);
+        if (!response.ok) {
+            throw new Error(`Failed to load SVG template: ${response.status}`);
+        }
+
+        const svgText = await response.text();
+
+        // Parse the SVG
+        const parser = new DOMParser();
+        const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
+        const svgElement = svgDoc.documentElement;
+
+        // Get SVG dimensions
+        const viewBox = svgElement.getAttribute('viewBox')?.split(' ').map(Number) || [0, 0, 1944, 13500];
+        const svgWidth = viewBox[2];
+        const svgHeight = viewBox[3];
+
+        console.log('SVG dimensions:', svgWidth, 'x', svgHeight);
+
+        // Find the ARTWORK HERE group/layer
+        let artworkGroup = svgDoc.getElementById('ARTWORK_HERE') ||
+                          svgDoc.querySelector('[id*="ARTWORK"]') ||
+                          svgDoc.querySelector('g[id*="artwork" i]');
+
+        if (!artworkGroup) {
+            // Try to find by looking at all groups
+            const groups = svgDoc.querySelectorAll('g');
+            for (const g of groups) {
+                const id = g.getAttribute('id') || '';
+                if (id.toUpperCase().includes('ARTWORK')) {
+                    artworkGroup = g;
+                    break;
+                }
+            }
+        }
+
+        if (!artworkGroup) {
+            console.warn('ARTWORK layer not found, creating one');
+            artworkGroup = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'g');
+            artworkGroup.setAttribute('id', 'ARTWORK_HERE');
+            svgElement.insertBefore(artworkGroup, svgElement.firstChild);
+        }
+
+        console.log('Found artwork group:', artworkGroup.getAttribute('id'));
+
+        // Clear existing content in artwork group (keep only the group itself)
+        while (artworkGroup.firstChild) {
+            artworkGroup.removeChild(artworkGroup.firstChild);
+        }
+
+        // WYSIWYG: Create coordinate transformer using the WYSIWYG module
+        // This ensures viewer and export use identical coordinate calculations
+        // See js/wysiwyg.js for documentation on the coordinate system
+        const transform = WYSIWYG.createExportTransform(canvas, svgWidth, svgHeight);
+
+        // Debug: Log coordinate system state
+        WYSIWYG.debugCoordinates(canvas, svgWidth, svgHeight);
+
+        console.log('Generating vector artwork with transform:', {
+            svgWidth,
+            svgHeight,
+            viewerWidth: transform.viewerWidth,
+            viewerHeight: transform.viewerHeight,
+            scaleX: transform.scaleX,
+            scaleY: transform.scaleY
+        });
+
+        // Generate vector artwork elements instead of rasterized PNG
+        const artworkElements = await generateVectorArtwork(svgDoc, svgWidth, svgHeight, transform);
+
+        // Add all generated elements to artwork group
+        artworkElements.forEach(element => {
+            if (element) {
+                artworkGroup.appendChild(element);
+            }
+        });
+
+        console.log(`Added ${artworkElements.length} vector elements to artwork group`);
+
+        // Make artwork group visible
+        artworkGroup.removeAttribute('class');
+        artworkGroup.style.display = '';
+
+        // Serialize SVG back to string
+        const serializer = new XMLSerializer();
+        let svgString = serializer.serializeToString(svgDoc);
+
+        // Clean up the SVG string and ensure proper namespace
+        svgString = svgString.replace(/xmlns:xlink="[^"]*"/g, 'xmlns:xlink="http://www.w3.org/1999/xlink"');
+
+        // Add color space comment for print production
+        svgString = svgString.replace(
+            /<svg/,
+            '<!-- COLOR SPACE: sRGB - Convert to CMYK (ISO Coated v2) in Illustrator before print -->\n<!-- Generated by PrintPilot - Vector artwork preserved -->\n<svg'
+        );
+
+        // Create blob and download
+        const blob = new Blob([svgString], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+
+        const productName = state.currentProduct.name.replace(/\s+/g, '_');
+        const sizeName = state.selectedSize.label?.replace(/[^a-zA-Z0-9]/g, '_') || 'XL';
+        const filename = `${productName}_${sizeName}_VECTOR.svg`;
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+
+        URL.revokeObjectURL(url);
+
+        showLoading(false);
+        showSuccess('Vector SVG Downloaded! Text and logos preserved as vectors. Open in Illustrator for editing.');
+
+    } catch (error) {
+        console.error('SVG download error:', error);
+        showLoading(false);
+        alert('Error generating SVG: ' + error.message);
     }
 }
 
