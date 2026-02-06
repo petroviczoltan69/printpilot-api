@@ -1,10 +1,11 @@
 // Vercel Serverless Function - Generate Background with DALL-E 3
 
 module.exports = async function handler(req, res) {
-    // CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // CORS headers - restrict to your domain
+    const allowedOrigin = process.env.ALLOWED_ORIGIN || '*';
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Api-Key');
 
     // Handle preflight request
     if (req.method === 'OPTIONS') {
@@ -14,6 +15,13 @@ module.exports = async function handler(req, res) {
     // Only allow POST
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // Verify API secret key (sent by PHP proxy from Hostinger)
+    const apiKey = req.headers['x-api-key'];
+    const expectedKey = process.env.API_SECRET_KEY;
+    if (expectedKey && apiKey !== expectedKey) {
+        return res.status(401).json({ error: 'Unauthorized' });
     }
 
     try {
